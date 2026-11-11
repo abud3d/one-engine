@@ -39,8 +39,10 @@ final readonly class Application
         if ($path === '/') {
             $body = $renderer->home($this->site, self::demoPage($this->site));
             if ($preview) {
-                $body = str_replace('</header>', '<nav class="one-home-nav" aria-label="القائمة الرئيسية"><a href="/">الرئيسية</a><a href="/pages">الصفحات</a><a href="/community">المجتمع</a></nav></header>', $body);
-                $body = str_replace('</main>', '<div class="actions"><a class="button" href="/pages">الصفحات</a><a class="button" href="/community">المجتمع</a></div></main>', $body);
+                $body = str_replace('</header>',
+                    '<nav class="one-home-nav" aria-label="القائمة الرئيسية"><a href="/">الرئيسية</a><a href="/pages">الصفحات</a><a href="' . $communityLink . '">المجتمع</a><a href="/community/login.html">الدخول</a><a href="/community/admin.html">الإدارة</a></nav></header>', $body);
+                $body = str_replace('</main>',
+                    '<div class="actions"><a class="button" href="/pages">الصفحات</a><a class="button" href="' . $communityLink . '">المجتمع الكامل</a><a class="button" href="/community/login.html">دخول الأعضاء</a><a class="button" href="/community/admin.html">لوحة الإدارة</a></div></main>', $body);
             }
             return new Response(200, $body, $headers);
         }
