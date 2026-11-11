@@ -8,7 +8,7 @@ use OneEngine\Security\Headers;
 
 final readonly class Application
 {
-    public function __construct(private Site $site, private string $publicRoot)
+    public function __construct(private Site $site, private string $publicRoot, private ?PageCatalog $pages = null)
     {
     }
 
@@ -32,7 +32,22 @@ final readonly class Application
         $path = explode('?', $uri, 2)[0];
         $renderer = new Renderer();
         if ($path === '/') {
-            return new Response(200, $renderer->home($this->site, self::demoPage($this->site)), $headers);
+            $body = $renderer->home($this->site, self::demoPage($this->site));
+            if ($this->pages !== null) {
+                $body = str_replace('</main>', '<div class="actions"><a class="button" href="/pages">تصفح الصفحات المنشورة</a></div></main>', $body);
+            }
+            return new Response(200, $body, $headers);
+        }
+        if ($this->pages !== null && $path === '/pages') {
+            return new Response(200, (new PagePreview())->index($this->site, $this->pages->published($this->site->id)), $headers);
+        }
+        if ($this->pages !== null && preg_match('~\\A/pages/([a-z0-9][a-z0-9_-]{0,63})\\z~D', $path, $matched)) {
+            foreach ($this->pages->published($this->site->id) as $page) {
+                if ($page->id === $matched[1]) {
+                    return new Response(200, (new PagePreview())->page($this->site, $page), $headers);
+                }
+            }
+            return new Response(404, 'Not found', $headers);
         }
         if ($path === '/health' && $this->site->mode !== Mode::Static) {
             $headers['Content-Type'] = 'application/json; charset=utf-8';
