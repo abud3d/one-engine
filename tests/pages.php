@@ -18,6 +18,8 @@ test('page catalog publishes only explicitly public pages, keeps drafts private 
     $index = $app->handle('GET', '/pages');
     check($index->status === 200 && str_contains($index->body, 'أول صفحة'));
     check(str_contains($index->body, 'class="one-nav"'));
+    check(str_contains($index->body, 'href="/community/community.html"'));
+    check(str_contains($index->body, 'href="/community/admin.html"'));
     check(str_contains($index->body, 'class="one-sidebar"'));
     check(str_contains($index->body, 'id="one-theme-toggle"'));
     check(str_contains($index->body, '/assets/preview-shell.js'));
@@ -36,7 +38,7 @@ test('page catalog publishes only explicitly public pages, keeps drafts private 
     check($app->handle('GET', '/pages/../config')->status === 404);
     check((new Application(demoSite(), dirname(__DIR__) . '/public'))->handle('GET', '/assets/preview-shell.js')->status === 200);
     check(str_contains($app->handle('GET', '/')->body, 'href="/pages"'));
-    check(str_contains($app->handle('GET', '/')->body, 'href="/community"'));
+    check(str_contains($app->handle('GET', '/')->body, 'href="/community/community.html"'));
 });
 
 test('page publishing validates slugs and stays isolated per site', function () use ($temp): void {
@@ -59,9 +61,9 @@ test('community feed and routes work without configured private storage', functi
     $feed = $app->handle('GET', '/community');
     check($feed->status === 200);
     check(str_contains($feed->body, 'لا توجد منشورات عامة بعد'));
-    check(str_contains($feed->body, 'href="/community"'));
+    check(str_contains($feed->body, 'href="/community/community.html"'));
     check(str_contains($app->handle('GET', '/')->body, 'href="/pages"'));
-    check(str_contains($app->handle('GET', '/')->body, 'href="/community"'));
+    check(str_contains($app->handle('GET', '/')->body, 'href="/community/community.html"'));
     check($app->handle('GET', '/community/example')->status === 404);
     check($app->handle('POST', '/community')->status === 405);
     check($app->handle('GET', '/api/community.php')->status === 404);

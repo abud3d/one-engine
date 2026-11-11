@@ -83,6 +83,25 @@ test('imported ARBNT API supports real session, login and admin access in isolat
             }
             [$stats, $adminHeaders] = $request('GET', 'admin-stats', $cookie);
             check(str_contains($adminHeaders, '200 OK') && $stats['users'] === 1, 'Real admin stats failed');
+            // Exercise the original ARBNT mutation flow, not the ONE Engine demo.
+            [$afterLogin] = $request('GET', 'session', $cookie);
+            $writeCsrf = $afterLogin['csrf'];
+            check(is_string($writeCsrf) && strlen($writeCsrf) > 30);
+            [$created, $createdHeaders] = $request('POST', 'post', $cookie, $writeCsrf,
+                ['title' => 'Integration topic', 'text' => 'Actual stored discussion text']);
+            check(str_contains($createdHeaders, '201 Created'), 'Could not publish actual ARBNT topic');
+            $postId = $created['item']['id'];
+            check(is_string($postId) && strlen($postId) > 0);
+            [$discussion, $feedHeaders] = $request('GET', 'posts', $cookie);
+            check(str_contains($feedHeaders, '200 OK') && $discussion['total'] === 1);
+            check($discussion['items'][0]['id'] === $postId, 'New topic not visible in original ARBNT feed');
+            // Preserve ARBNT's real 2-second per-account write throttle.
+            sleep(2);
+            [$comment, $commentHeaders] = $request('POST', 'comment', $cookie, $writeCsrf,
+                ['post_id' => $postId, 'text' => 'First verified comment']);
+            check(str_contains($commentHeaders, '201 Created') && $comment['item']['post_id'] === $postId,
+                'Could not publish original ARBNT comment: ' . $commentHeaders . ' ' . json_encode($comment));
+
         });
     } finally {
         if ($oldCodespace === false) {

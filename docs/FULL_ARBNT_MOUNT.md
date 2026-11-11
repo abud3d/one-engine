@@ -104,3 +104,11 @@ unset ONE_ARBNT_ADMIN_PASSWORD
 ```
 
 This only updates an existing local administrator in `arbnt-private/users.json`, increments `session_version`, and does not display or commit the password. Do not paste passwords into chat.
+
+## v0.2 navigation + actual posting verification (2026-11-11)
+
+- The main ONE Engine header and `/pages` navigation now link directly to the real imported ARBNT discussions at `/community/community.html`, plus `/community/login.html` and `/community/admin.html`. `/community` redirects to the real ARBNT app in Codespaces. The separate prototype `CommunityCatalog` is not presented as the working community.
+- The authentic ARBNT header and phone drawer expose a return link to `/pages`; all original ARBNT navigation remains.
+- CI now tests a real account flow on a private fixture: session → admin login → read admin stats → create an ARBNT post → fetch its public feed → create a comment. This is still an integration test, not a claim that all end-user scenarios, browsers, emails and full admin settings are verified.
+- Both environments remain separate in storage and permissions. Login does not yet grant ONE Engine native Core permissions. The site-specific legacy ACL and HTTP API still need careful migration.
+- The original installed ARBNT GitHub repository is unchanged. The Codespaces browser still requires manually pulling the merged commit and restarting the PHP process with the preview variables.
