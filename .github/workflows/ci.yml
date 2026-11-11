@@ -35,6 +35,9 @@ jobs:
           find src config public tests -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l bootstrap.php
           php -l bin/one
+          php -l bin/one-arbnt-install
+          php -l bin/one-posts
+          php -l bin/one-pages
       - name: Behavioral, concurrency and HTTP tests
         run: php tests/run.php
       - name: Check module boundaries and release hygiene

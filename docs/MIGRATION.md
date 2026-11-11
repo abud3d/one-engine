@@ -56,3 +56,7 @@
 احتياطية معزولة ومصرح بها، إزالة الأسرار والبيانات غير المطلوبة، dry-run،
 تقرير تعارضات ومطابقة IDs والعلاقات، تحقق counts/checksums، وتجربة rollback
 قبل التفعيل. لا تُدخل قواعد الإنتاج أو مستخدميها إلى Git أو fixtures الاختبارات.
+
+## Imported ARBNT provenance — source-preserving mount
+
+ARBNT main commit `1b5c44b21bc328fef7bc4645ce3140dba0ed13d1`. The complete existing ARBNT user-facing application screens, front-end assets and `api/community.php` were copied into `public/community/`; `app/core.php` was moved unchanged to `src/LegacyArbnt/core.php` outside document root. Adaptations are limited to API core path and HTTPS forwarded Codespaces preview/session cookie scope; `install.php`/`recover.php` intentionally were not exposed. Original source repository remains unchanged. The module still uses ARBNT's own identity and permissions; integration into native ONE Engine Core is unfinished. See `docs/FULL_ARBNT_MOUNT.md`. No production users or records were imported.

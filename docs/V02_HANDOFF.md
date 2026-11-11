@@ -60,3 +60,7 @@
 - سجّل كل خبرة حقيقية جديدة ضمن `talal-prompts` بعد تحققها.
 
 **جملة الاستئناف:** «واصل ONE-V02-004 من آخر commit في one-engine، اقرأ docs/V02_HANDOFF.md وAGENTS.md؛ نفذ أصغر شريحة مرئية مع اختبارات وPR، دون تعديل arbnt أو VPS».
+
+## تحديث فعلي: نقل مجتمع ARBNT الأصلي كوحدة مستقلة
+
+تم استيراد 28 ملفًا فعليًا من ARBNT في فرع `feature/full-arbnt-community-mount` (الأصل `1b5c44b21bc328fef7bc4645ce3140dba0ed13d1`) مع صفحة المجتمع والحسابات ولوحة الإدارة وJS/CSS والـAPI ومحرك PHP الخاص. **هذا ليس تحويل كل وظائف ARBNT إلى ONE Engine Core بعد.** اقرأ [FULL_ARBNT_MOUNT.md](FULL_ARBNT_MOUNT.md) للروابط وخطوات Codespaces والتثبيت التجريبي ومحدوديات الأمان. لا تخلط بين `/community` المرتبط بتطبيق ARBNT الأصلي وبين النموذج الصغير `CommunityCatalog`.

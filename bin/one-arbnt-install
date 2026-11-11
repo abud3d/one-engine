@@ -1,0 +1,70 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+// Fresh, isolated Codespaces development data only. No ARBNT production migration.
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+if (PHP_VERSION_ID < 80300 || $argc !== 3) {
+    fwrite(STDERR, "Usage: php bin/one-arbnt-install 'Site name' admin_username\nRequires PHP 8.3+ and ONE_ARBNT_ADMIN_PASSWORD env (12+ chars).\n");
+    exit(2);
+}
+[$site, $username] = [$argv[1], $argv[2]];
+$password = getenv('ONE_ARBNT_ADMIN_PASSWORD');
+if (strlen($site) < 2 || strlen($site) > 100
+    || !preg_match('/\A[a-zA-Z0-9_]{3,32}\z/D', $username)
+    || !is_string($password) || strlen($password) < 12 || strlen($password) > 256) {
+    fwrite(STDERR, "Invalid site, username or password (at least 12 characters).\n");
+    exit(2);
+}
+$root = dirname(__DIR__);
+$private = $root . '/arbnt-private';
+if (is_link($private) || (file_exists($private) && !is_dir($private))) {
+    fwrite(STDERR, "Unsafe private storage path.\n");
+    exit(1);
+}
+if (is_dir($private) && count(array_diff(scandir($private) ?: [], ['.', '..'])) > 0) {
+    fwrite(STDERR, "Private ARBNT storage already exists. Refusing to overwrite any data.\n");
+    exit(1);
+}
+if (!is_dir($private) && !mkdir($private, 0700)) {
+    fwrite(STDERR, "Cannot create private storage.\n");
+    exit(1);
+}
+chmod($private, 0700);
+$config = ['site_name' => $site, 'site_description' => 'مجتمع ARBNT داخل معاينة ONE Engine',
+    'created_at' => gmdate('c'), 'version' => '0.6.8'];
+$admin = ['id' => bin2hex(random_bytes(12)), 'username' => $username,
+    'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+    'role' => 'admin', 'verified' => true, 'created_at' => gmdate('c')];
+unset($password);
+try {
+    foreach (['config' => $config, 'users' => [$admin], 'posts' => [],
+        'communities' => [], 'comments' => [], 'favorites' => [],
+        'notifications' => [], 'reports' => []] as $key => $value) {
+        $file = $private . '/' . $key . '.json';
+        $bytes = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+        $stream = fopen($file, 'x');
+        if ($stream === false) {
+            throw new RuntimeException('File already exists: ' . $key);
+        }
+        try {
+            if (fwrite($stream, $bytes) !== strlen($bytes)) {
+                throw new RuntimeException('Incomplete write: ' . $key);
+            }
+            fflush($stream);
+        } finally {
+            fclose($stream);
+        }
+        chmod($file, 0600);
+    }
+    if (file_put_contents($private . '/installed.lock', gmdate('c'), LOCK_EX) === false) {
+        throw new RuntimeException('Cannot mark installation complete.');
+    }
+    chmod($private . '/installed.lock', 0600);
+} catch (Throwable $error) {
+    fwrite(STDERR, "Incomplete installation; inspect private data before manual recovery: " . $error->getMessage() . "\n");
+    exit(1);
+}
+echo "Fresh ARBNT community installed (no production records).\nOpen /community/login.html and /community/admin.html in your Codespaces browser.\n";

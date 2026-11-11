@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#ffffff">
+<title>مركز إدارة ARBNT | شبكة العرب</title>
+<link rel="stylesheet" href="assets/admin.css?v=0.6.8">
+<script src="assets/admin.js?v=0.6.8" defer></script>
+</head>
+<body>
+<header class="header"><div class="head-inner">
+<a class="identity" href="index.html" aria-label="العودة إلى ARBNT"><span class="mark">AR</span><span><strong>ARBNT</strong><small>شبكة العرب</small></span></a>
+<div class="head-links"><a href="index.html">الرئيسية</a><a href="community.html">المجتمع</a><span class="version" id="version">الإدارة</span></div>
+</div></header>
+<div class="shell">
+<aside class="side" id="sidebar">
+<div class="side-label">نظرة عامة</div>
+<nav aria-label="التنقل في لوحة الإدارة">
+<button class="nav-btn active" data-nav="overview"><span class="ico">◫</span> المؤشرات</button>
+<button class="nav-btn" data-nav="users"><span class="ico">♙</span> الأعضاء</button>
+<button class="nav-btn" data-nav="posts"><span class="ico">▤</span> المنشورات</button>
+<button class="nav-btn" data-nav="comments"><span class="ico">☷</span> الردود</button>
+<button class="nav-btn" data-nav="reports"><span class="ico">!</span> البلاغات</button>
+<button class="nav-btn" data-nav="communities"><span class="ico">▦</span> المجتمعات</button>
+<button class="nav-btn" data-nav="security"><span class="ico">◇</span> الأمان والتنبيهات</button>
+<button class="nav-btn" data-nav="settings"><span class="ico">⚙</span> إعدادات الموقع</button>
+<button class="nav-btn" data-nav="definitions"><span class="ico">ⓘ</span> التعريفات</button>
+</nav>
+<div class="aside-foot">مركز الإدارة خاص بحساب المدير. جميع الأرقام مشتقة من بيانات الموقع.</div>
+</aside>
+<main class="main" id="main">
+<div class="heading"><div><span class="eyebrow">ARBNT / CONTROL CENTER</span><h1 id="sectionTitle">لوحة المؤشرات</h1><p id="sectionSubtitle">متابعة المجتمع من مكان واحد، بلا تعقيد.</p></div><div class="heading-right"><button class="btn" type="button" id="refresh">↻ تحديث</button></div></div>
+<p class="feedback" id="notice" role="status" aria-live="polite"></p>
+<section id="gate" class="gate hidden"><h2>تسجيل دخول المدير</h2><p>يجب تسجيل الدخول بحساب المدير للوصول إلى الإدارة. لا تُعرض أي بيانات إدارية للزوار.</p><a class="btn primary" href="login.html">تسجيل الدخول</a></section>
+<div id="dashboard" class="hidden">
+<section data-section="overview" id="section-overview">
+<div class="metrics">
+<div class="metric"><span>الأعضاء</span><strong id="metric-members">—</strong><small>جميع الحسابات</small></div>
+<div class="metric"><span>المنشورات</span><strong id="metric-posts">—</strong><small>المحتوى المنشور</small></div>
+<div class="metric"><span>الردود</span><strong id="metric-comments">—</strong><small>تفاعلات المجتمع</small></div>
+<div class="metric"><span>المجتمعات</span><strong id="metric-communities">—</strong><small>الأقسام المنشأة</small></div>
+<div class="metric"><span>غير المفعّلين</span><strong id="metric-unverified">—</strong><small>حسابات تحتاج مراجعة</small></div>
+<div class="metric"><span>المحظورون</span><strong id="metric-banned">—</strong><small>حسابات مقيدة</small></div>
+</div>
+<div class="cols">
+<div class="panel"><div class="panel-head"><div><h2>نشاط المجتمع</h2><small>آخر 14 يوماً حسب تاريخ إنشاء السجلات — UTC</small></div></div><canvas class="chart" id="activityChart" role="img" aria-label="رسم بياني للمنشورات والردود والأعضاء خلال 14 يوماً"></canvas><div class="legend"><span><i class="p"></i>المنشورات</span><span><i class="c"></i>الردود</span><span><i class="u"></i>الأعضاء الجدد</span></div><p class="hint" id="activitySummary"></p></div>
+<div class="panel"><div class="panel-head"><div><h2>المجتمعات الأكثر نشاطاً</h2><small>بحسب عدد المنشورات الحالية</small></div></div><div id="communityBars"></div></div>
+</div>
+<div class="cols">
+<div class="panel"><div class="panel-head"><h2>التنبيهات الحالية</h2><button type="button" data-open="security" class="btn tiny">التفاصيل</button></div><div id="overviewAlerts"></div></div>
+<div class="panel"><div class="panel-head"><h2>التوزيع العام للمحتوى</h2><small>السجلات الحالية</small></div><div id="contentRatio"></div><p class="hint">هذا الرسم يقارن أعداد المنشورات والردود، وليس زيارات الموقع.</p></div>
+</div>
+</section>
+<section data-section="users" class="hidden" id="section-users">
+<div class="subsection"><div><h2>إدارة الأعضاء</h2><p>البحث والتفعيل والحظر وفك الحظر مع حماية حساب المدير.</p></div></div>
+<div class="panel"><div class="toolbar"><input id="userSearch" type="search" placeholder="ابحث بالاسم أو البريد" aria-label="البحث في الأعضاء"><span class="hint" id="userCount"></span></div><div id="userList" class="data-list"></div></div>
+</section>
+<section data-section="posts" class="hidden" id="section-posts">
+<div class="subsection"><div><h2>إدارة المنشورات</h2><p>مراجعة النصوص وتعديل العنوان والمحتوى والمجتمع أو حذف المنشور.</p></div></div>
+<div class="panel"><div class="toolbar"><input id="postSearch" type="search" placeholder="ابحث في العناوين والمحتوى" aria-label="البحث في المنشورات"><button type="button" id="postSearchButton" class="btn">بحث</button><span id="postCount" class="hint"></span></div><div id="postList" class="data-list"></div><div id="postPager" class="pagination"></div></div>
+</section>
+<section data-section="comments" class="hidden" id="section-comments">
+<div class="subsection"><div><h2>إدارة الردود</h2><p>استعراض الردود وحذف المخالف بعد التأكيد.</p></div></div>
+<div class="panel"><div class="toolbar"><input id="commentSearch" type="search" placeholder="ابحث في الردود" aria-label="البحث في الردود"><button type="button" id="commentSearchButton" class="btn">بحث</button><span id="commentCount" class="hint"></span></div><div id="commentList" class="data-list"></div><div id="commentPager" class="pagination"></div></div>
+</section>
+<section data-section="reports" class="hidden" id="section-reports">
+<div class="subsection"><div><h2>البلاغات</h2><p>آخر البلاغات المرسلة عن الأعضاء والمنشورات والتعليقات.</p></div></div>
+<div class="panel"><div id="reportList" class="data-list"></div></div>
+</section>
+<section data-section="communities" class="hidden" id="section-communities">
+<div class="subsection"><div><h2>إدارة المجتمعات</h2><p>إنشاء مجتمع أو تعديل تعريفه أو حذفه إذا كان خالياً من المنشورات.</p></div></div>
+<div class="panel"><h2>إنشاء مجتمع</h2><form id="createCommunityForm" class="form-stack"><div class="fields"><label>اسم المجتمع<input name="name" required maxlength="80" placeholder="مثال: التقنية"></label><label>الاسم بالإنجليزية<input name="name_en" maxlength="80" placeholder="Technology"></label><label>الرابط المختصر بالإنجليزية<input name="slug" required maxlength="40" minlength="3" pattern="[a-z0-9-]{3,40}" placeholder="technology"></label><label>الأيقونة<select name="icon"><option value="chat">نقاش</option><option value="users">مجتمع</option><option value="home">منزل</option><option value="heart">قلب</option><option value="star">نجمة</option><option value="code">برمجة</option><option value="book">كتاب</option><option value="globe">عالمي</option><option value="briefcase">أعمال</option></select></label><label>لون الاسم<input name="color" type="color" value="#0869b1"></label><label class="wide">التعريف بالمجتمع<textarea name="description" maxlength="500" placeholder="ما الذي يناقشه هذا المجتمع؟"></textarea></label></div><div><button class="btn primary" type="submit">إنشاء المجتمع</button></div></form></div>
+<div class="panel"><h2>المجتمعات الموجودة</h2><div id="communityList" class="data-list"></div></div>
+</section>
+<section data-section="security" class="hidden" id="section-security">
+<div class="subsection"><div><h2>الأمان والتنبيهات</h2><p>مؤشرات تحذير محددة، وليست فحصاً أمنياً كاملاً.</p></div></div>
+<div class="panel"><h2>التنبيهات</h2><div id="securityAlerts"></div></div>
+<div class="panel"><h2>ملفات الموقع والتخزين</h2><div class="kv" id="storageDetails"></div><p class="hint">تُعرض أوصاف المسارات دون كشف المسارات الفعلية على السيرفر.</p></div>
+<div class="panel"><h2>آخر الأحداث الأمنية</h2><div id="securityEvents" class="data-list"></div></div>
+</section>
+<section data-section="settings" class="hidden" id="section-settings">
+<div class="subsection"><div><h2>إعدادات شبكة العرب</h2><p>الهوية العامة الأساسية دون تعديلات على الملفات أو قاعدة بيانات.</p></div></div>
+<div class="panel"><h2>تعريف الموقع</h2><form id="settingsForm" class="form-stack"><label>اسم الموقع<input name="site_name" required maxlength="100" placeholder="شبكة العرب"></label><label>وصف الموقع<textarea name="site_description" maxlength="320" placeholder="نبذة قصيرة تظهر في واجهة المجتمع"></textarea></label><div><button class="btn primary" type="submit">حفظ الإعدادات</button></div></form><p class="hint">يظهر الوصف في صفحة المجتمع. لا يغيّر هذا الإعداد النصوص الثابتة في الصفحة التعريفية الأصلية.</p></div>
+<div class="panel"><h2>البريد والتفعيل</h2><form id="mailSettingsForm" class="form-stack"><div class="fields"><label>طريقة الإرسال<select name="driver"><option value="mail">PHP mail()</option><option value="smtp">SMTP</option></select></label><label>خادم SMTP<input name="host" placeholder="smtp.example.com"></label><label>المنفذ<input name="port" type="number" min="1" max="65535" value="587"></label><label>التشفير<select name="encryption"><option value="tls">STARTTLS</option><option value="ssl">SSL/TLS</option><option value="none">بدون</option></select></label><label>اسم المستخدم<input name="username" autocomplete="username"></label><label>كلمة مرور SMTP<input name="password" type="password" autocomplete="new-password" placeholder="اتركها فارغة للإبقاء على الحالية"></label><label>بريد المرسل<input name="from_email" type="email" placeholder="no-reply@example.com"></label><label>اسم المرسل<input name="from_name" maxlength="80" value="ARBNT"></label></div><div class="toolbar"><button class="btn primary" type="submit">حفظ إعدادات البريد</button></div></form><form id="mailTestForm" class="toolbar"><input name="email" type="email" required placeholder="البريد الذي سيستقبل رسالة الاختبار"><button class="btn" type="submit">إرسال اختبار</button></form><p class="hint" id="mailStatus"></p></div><div class="panel"><h2>معلومات التثبيت</h2><div id="systemInfo" class="kv"></div></div>
+</section>
+<section data-section="definitions" class="hidden" id="section-definitions">
+<div class="subsection"><div><h2>التعريفات وقراءة المؤشرات</h2><p>ما الذي تُظهره الأرقام، وما الذي لا يمكن استنتاجه منها.</p></div></div>
+<div class="definitions">
+<div class="definition"><strong>الأعضاء</strong><p>عدد حسابات المستخدمين المسجلة، بما فيها المحظورة والتي لم تُفعّل بريدها.</p></div>
+<div class="definition"><strong>المنشورات</strong><p>المواضيع المحفوظة حالياً. الحذف يقلّل العدد؛ لا يمثل مجموع ما نُشر تاريخياً.</p></div>
+<div class="definition"><strong>الردود</strong><p>التعليقات المحفوظة على المنشورات، وليس عدد الإعجابات أو المشاهدات.</p></div>
+<div class="definition"><strong>النشاط اليومي</strong><p>تجميع حسب تاريخ إنشاء السجلات خلال 14 يوماً بالتوقيت العالمي UTC.</p></div>
+<div class="definition"><strong>المجتمعات النشطة</strong><p>ترتيب بعدد المنشورات الحالية لكل مجتمع؛ لا يقيس زياراته.</p></div>
+<div class="definition"><strong>حساب غير مفعل</strong><p>عضو يحتاج تفعيل البريد قبل تسجيل الدخول. يمكن للمدير تفعيله بعد التحقق منه.</p></div>
+<div class="definition"><strong>الحظر</strong><p>يمنع الحساب المحظور من استخدام جلسة الدخول، مع الاحتفاظ بسجلاته السابقة.</p></div>
+<div class="definition"><strong>تنبيه أمني</strong><p>ينتج عند تحقق شرط محدد مثل تكرار فشل الدخول في السجل؛ لا يثبت وجود اختراق.</p></div>
+<div class="definition"><strong>التخزين الخارجي</strong><p>حفظ ملفات JSON خارج public_html لتقليل خطر وصول الويب المباشر إليها.</p></div>
+<div class="definition"><strong>حدود القياس</strong><p>لا تتوفر أرقام الزيارات والزوار الفريدين أو الحمل على المعالج دون نظام جمع بيانات إضافي.</p></div>
+</div>
+</section>
+</div>
+</main>
+</div>
+<dialog id="postDialog" aria-labelledby="postDialogTitle"><h2 id="postDialogTitle">تعديل المنشور</h2><form id="postEditForm" class="form-stack"><input type="hidden" name="id"><label>العنوان<input name="title" maxlength="180" required></label><label>المحتوى<textarea name="text" maxlength="8000" required></textarea></label><label>المجتمع<select name="community_id" id="postEditCommunity"><option value="">عام</option></select></label><label>رابط صورة HTTPS (اختياري)<input name="image" type="url" placeholder="https://..."></label><div class="dialog-actions"><button type="submit" class="btn primary">حفظ التعديل</button><button type="button" class="btn" data-close="postDialog">إلغاء</button></div></form></dialog>
+<dialog id="communityDialog" aria-labelledby="communityDialogTitle"><h2 id="communityDialogTitle">تعديل المجتمع</h2><form id="communityEditForm" class="form-stack"><input type="hidden" name="id"><label>اسم المجتمع<input name="name" maxlength="80" required></label><label>الاسم بالإنجليزية<input name="name_en" maxlength="80"></label><label>الأيقونة<select name="icon"><option value="chat">نقاش</option><option value="users">مجتمع</option><option value="home">منزل</option><option value="heart">قلب</option><option value="star">نجمة</option><option value="code">برمجة</option><option value="book">كتاب</option><option value="globe">عالمي</option><option value="briefcase">أعمال</option></select></label><label>لون الاسم<input name="color" type="color" value="#0869b1"></label><label>التعريف<textarea name="description" maxlength="500"></textarea></label><div class="dialog-actions"><button type="submit" class="btn primary">حفظ التعديل</button><button type="button" class="btn" data-close="communityDialog">إلغاء</button></div></form></dialog>
+</body></html>
