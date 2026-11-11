@@ -76,3 +76,31 @@ See `docs/V02_HANDOFF.md`, `docs/ARBNT_AUTH_REVIEW.md` and issue #4 for the rema
 ## Fix for `HTTPS required` on Codespaces
 
 After updating `main`, stop the previous PHP server with Ctrl+C and restart it in **the same terminal** with `export ONE_CODESPACES_PREVIEW=1`. `CODESPACE_NAME` is provided by the GitHub Codespaces environment; do not make up a different name. Verify it is nonempty using `echo "$CODESPACE_NAME"`. Make sure the forwarded port's visibility is **Private**, not Public. If the environment variable is missing or the active hostname differs from `${CODESPACE_NAME}-8080.app.github.dev`, the server intentionally returns `HTTPS required` rather than trusting spoofed proxy headers. Do not modify this logic on a production server. The API's session cookie remains Secure, HttpOnly, and restricted to `/community`.
+
+## Codespaces gateway fix and account recovery
+
+A browser may use `https://` while the PHP server sees an HTTP transport. In development only, set a server-side **exact expected hostname** and a preview flag before starting PHP:
+
+```bash
+cd /workspaces/one-engine
+git switch main
+git pull --ff-only origin main
+export ONE_CODESPACES_PREVIEW=1
+export ONE_CODESPACES_HOST=literate-space-memory-rv7g9gxqjqfwpwq-8080.app.github.dev
+php -c config/php.ini -S 0.0.0.0:8080 -t public public/router.php
+```
+
+Only use this hostname if it matches your current Codespaces **private** port 8080 URL. The server accepts the exact pinned host only while running PHP's CLI built-in server and with the preview flag; it does not disable HTTPS enforcement on production server PHP. If a 403 persists, the JSON API returns non-sensitive `preview_status` flags to show whether the expected hostname matches.
+
+The test administrator username is `testadmin` when initialized using `bin/one-arbnt-install`. The password is the one you set during installation. Passwords cannot be retrieved from hashes. To reset the *existing* test administrator's password without deleting posts or accounts, open a separate Codespaces terminal and run:
+
+```bash
+cd /workspaces/one-engine
+read -rsp 'New test admin password (12+ chars): ' ONE_ARBNT_ADMIN_PASSWORD
+echo
+export ONE_ARBNT_ADMIN_PASSWORD
+php bin/one-arbnt-password testadmin
+unset ONE_ARBNT_ADMIN_PASSWORD
+```
+
+This only updates an existing local administrator in `arbnt-private/users.json`, increments `session_version`, and does not display or commit the password. Do not paste passwords into chat.
