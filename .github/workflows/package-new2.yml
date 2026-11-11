@@ -1,4 +1,4 @@
-name: Build portable ARBNT JSON community ZIP
+name: Portable ARBNT JSON ZIP
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
     paths:
       - "scripts/package-arbnt-new2.sh"
       - ".github/workflows/package-new2.yml"
-      - "docs/ARBNT_NEW2_INSTALL.md"
+      - "docs/ARBNT_PORTABLE_INSTALL.md"
 
 permissions:
   contents: read
@@ -16,67 +16,39 @@ jobs:
   package:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout ONE Engine build script
+      - name: Checkout ONE Engine package builder
         uses: actions/checkout@v4
-      - name: Checkout audited ARBNT source snapshot
+      - name: Checkout original ARBNT snapshot
         uses: actions/checkout@v4
         with:
           repository: abud3d/arbnt
           ref: 1b5c44b21bc328fef7bc4645ce3140dba0ed13d1
           path: _arbnt_original
           persist-credentials: false
-      - name: Build standalone new2 JSON installer
-        run: |
-          bash scripts/package-arbnt-new2.sh _arbnt_original dist
-      - name: Verify archive has private data isolation and standalone installer
+      - name: Build archive
+        run: bash scripts/package-arbnt-new2.sh _arbnt_original dist
+      - name: Validate portable protected install files
         run: |
           set -eu
           test -s dist/arbnt-portable-json.zip
-          test -s dist/arbnt-portable-json.zip.sha256
-          unzip -Z1 dist/arbnt-portable-json.zip | grep -q '^install.php$'
-          unzip -Z1 dist/arbnt-portable-json.zip | grep -q '^api/community.php$'
-          unzip -Z1 dist/arbnt-portable-json.zip | grep -q '^\.htaccess$'
-          ! unzip -Z1 dist/arbnt-portable-json.zip | grep -E -q '(^storage/|\.env$|users.json$)'
-          grep -q ".private-data" dist/portable-site/install.php
-          grep -q ".private-data" dist/portable-site/app/core.php
-          grep -q ".private-app" dist/portable-site/install.php
-          unzip -Z1 dist/arbnt-portable-json.zip | grep -q '^.private-data/.htaccess
-          grep -q "\.arbnt-app\.php" dist/portable-site/install.php
-          sha256sum --check dist/arbnt-portable-json.zip.sha256
-          echo "Packaged files:"
-          unzip -Z1 dist/arbnt-portable-json.zip | tail -10
-      - name: Upload ready-to-install ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: arbnt-portable-json-install
-          path: |
-            dist/arbnt-portable-json.zip
-            dist/arbnt-portable-json.zip.sha256
-          retention-days: 30
-          if-no-files-found: error
-
-          unzip -Z1 dist/arbnt-portable-json.zip | grep -q '^.private-app/.htaccess
-          grep -q "\.arbnt-app\.php" dist/portable-site/install.php
-          sha256sum --check dist/arbnt-portable-json.zip.sha256
-          echo "Packaged files:"
-          unzip -Z1 dist/arbnt-portable-json.zip | tail -10
-      - name: Upload ready-to-install ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: arbnt-portable-json-install
-          path: |
-            dist/arbnt-portable-json.zip
-            dist/arbnt-portable-json.zip.sha256
-          retention-days: 30
-          if-no-files-found: error
-
-          grep -q "status!==403" dist/portable-site/install.php
-          grep -q "Require all denied" dist/portable-site/.private-data/.htaccess
-          grep -q "\.arbnt-app\.php" dist/portable-site/install.php
-          sha256sum --check dist/arbnt-portable-json.zip.sha256
-          echo "Packaged files:"
-          unzip -Z1 dist/arbnt-portable-json.zip | tail -10
-      - name: Upload ready-to-install ZIP
+          (cd dist && sha256sum -c arbnt-portable-json.zip.sha256)
+          unzip -Z1 dist/arbnt-portable-json.zip > /tmp/arbnt-package-files
+          grep -Fxq "install.php" /tmp/arbnt-package-files
+          grep -Fxq "api/community.php" /tmp/arbnt-package-files
+          grep -Fxq ".htaccess" /tmp/arbnt-package-files
+          grep -Fxq ".private-data/.htaccess" /tmp/arbnt-package-files
+          grep -Fxq ".private-app/.htaccess" /tmp/arbnt-package-files
+          grep -Fxq "app/.htaccess" /tmp/arbnt-package-files
+          if grep -Eq '(^storage/|\\.env$|users\\.json$)' /tmp/arbnt-package-files; then exit 1; fi
+          grep -Fq ".private-data" dist/portable-site/install.php
+          grep -Fq ".private-data" dist/portable-site/app/core.php
+          grep -Fq ".private-app" dist/portable-site/install.php
+          grep -Fq "status!==403" dist/portable-site/install.php
+          grep -Fq "Require all denied" dist/portable-site/.private-data/.htaccess
+          if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/install.php; then exit 1; fi
+          if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/app/core.php; then exit 1; fi
+          echo "PORTABLE PACKAGE CHECKS PASSED"
+      - name: Upload ZIP
         uses: actions/upload-artifact@v4
         with:
           name: arbnt-portable-json-install
