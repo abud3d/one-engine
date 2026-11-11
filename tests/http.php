@@ -95,7 +95,7 @@ test('mounted ARBNT pages, assets and administration UI are served without expos
     withServer(dirname(__DIR__), function (string $base): void {
         foreach (['/community/community.html' => 'النقاشات',
                   '/community/login.html' => 'تسجيل',
-                  '/community/register.html' => 'تسجيل',
+                  '/community/register.html' => 'إنشاء حساب',
                   '/community/admin.html' => 'إدارة'] as $uri => $text) {
             [$body, $headers] = httpRequest($base . $uri);
             check(str_contains($headers, '200 OK'), 'Missing legacy view: ' . $uri);
