@@ -18,7 +18,7 @@ for path in (root / 'public').rglob('*'):
     if path.is_file():
         rel = path.relative_to(root / 'public').as_posix()
         if rel.startswith('community/'):
-            assert re.fullmatch(r'community/(?:[a-z]+\\.html|api/community\\.php|assets/[a-z][a-z0-9-]*\\.(?:css|js))', rel), path
+            assert re.fullmatch(r'community/(?:[a-z]+\.html|api/community\.php|assets/[a-z][a-z0-9-]*\.(?:css|js))', rel), path
         else:
             assert path.suffix in {'.php', '.css'} or rel == 'assets/preview-shell.js', path
         assert not path.is_symlink(), path
