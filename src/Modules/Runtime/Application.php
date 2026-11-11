@@ -8,7 +8,7 @@ use OneEngine\Security\Headers;
 
 final readonly class Application
 {
-    public function __construct(private Site $site, private string $publicRoot, private ?PageCatalog $pages = null)
+    public function __construct(private Site $site, private string $publicRoot, private ?PageCatalog $pages = null, private ?CommunityCatalog $community = null)
     {
     }
 
@@ -31,22 +31,40 @@ final readonly class Application
         // Exact allowlist; no request-derived filesystem paths or dynamic includes.
         $path = explode('?', $uri, 2)[0];
         $renderer = new Renderer();
+        // Source preview only: exported runtimes omit these preview assets.
+        $preview = is_file($this->publicRoot . '/assets/preview-shell.css')
+            && is_file($this->publicRoot . '/assets/preview-shell.js');
         if ($path === '/') {
             $body = $renderer->home($this->site, self::demoPage($this->site));
-            if ($this->pages !== null) {
-                $body = str_replace('</main>', '<div class="actions"><a class="button" href="/pages">تصفح الصفحات المنشورة</a></div></main>', $body);
+            if ($preview) {
+                $body = str_replace('</header>', '<nav class="one-home-nav" aria-label="القائمة الرئيسية"><a href="/">الرئيسية</a><a href="/pages">الصفحات</a><a href="/community">المجتمع</a></nav></header>', $body);
+                $body = str_replace('</main>', '<div class="actions"><a class="button" href="/pages">الصفحات</a><a class="button" href="/community">المجتمع</a></div></main>', $body);
             }
             return new Response(200, $body, $headers);
         }
-        if ($this->pages !== null && $path === '/pages') {
+        if ($preview && $path === '/pages') {
             $headers['Content-Security-Policy'] = str_replace("style-src 'self';", "style-src 'self'; script-src 'self';", $headers['Content-Security-Policy']);
-            return new Response(200, (new PagePreview())->index($this->site, $this->pages->published($this->site->id)), $headers);
+            return new Response(200, (new PagePreview())->index($this->site, ($this->pages?->published($this->site->id) ?? [])), $headers);
         }
-        if ($this->pages !== null && preg_match('~\\A/pages/([a-z0-9][a-z0-9_-]{0,63})\\z~D', $path, $matched)) {
+        if ($preview && $this->pages !== null && preg_match('~\\A/pages/([a-z0-9][a-z0-9_-]{0,63})\\z~D', $path, $matched)) {
             foreach ($this->pages->published($this->site->id) as $page) {
                 if ($page->id === $matched[1]) {
                     $headers['Content-Security-Policy'] = str_replace("style-src 'self';", "style-src 'self'; script-src 'self';", $headers['Content-Security-Policy']);
                     return new Response(200, (new PagePreview())->page($this->site, $page), $headers);
+                }
+            }
+            return new Response(404, 'Not found', $headers);
+        }
+        if ($preview && $path === '/community') {
+            $headers['Content-Security-Policy'] = str_replace("style-src 'self';", "style-src 'self'; script-src 'self';", $headers['Content-Security-Policy']);
+            return new Response(200, (new PagePreview())->community($this->site,
+                $this->community?->published($this->site->id) ?? []), $headers);
+        }
+        if ($preview && $this->community !== null && preg_match('~\\A/community/([a-z0-9][a-z0-9_-]{0,63})\\z~D', $path, $matched)) {
+            foreach ($this->community->published($this->site->id) as $post) {
+                if ($post->id === $matched[1]) {
+                    $headers['Content-Security-Policy'] = str_replace("style-src 'self';", "style-src 'self'; script-src 'self';", $headers['Content-Security-Policy']);
+                    return new Response(200, (new PagePreview())->post($this->site, $post), $headers);
                 }
             }
             return new Response(404, 'Not found', $headers);
@@ -63,7 +81,7 @@ final readonly class Application
             $headers['Content-Type'] = 'application/xml; charset=utf-8';
             return new Response(200, $renderer->sitemap($this->site), $headers);
         }
-        if ($this->pages !== null && in_array($path, ['/assets/preview-shell.css', '/assets/preview-shell.js'], true)) {
+        if ($preview && in_array($path, ['/assets/preview-shell.css', '/assets/preview-shell.js'], true)) {
             $headers['Content-Type'] = str_ends_with($path, '.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8';
             $body = file_get_contents($this->publicRoot . $path);
             if ($body === false) {

@@ -47,6 +47,12 @@ php -S 127.0.0.1:8082 -t build/demo-hybrid/public build/demo-hybrid/public/route
 php -S 127.0.0.1:8083 -t build/demo-dynamic/public build/demo-dynamic/public/router.php
 ```
 
+## معاينة Codespaces الجديدة
+
+- [حل خطأ Not found وروابط الهيدر وصفحة المجتمع](docs/CODESPACES_COMMUNITY.md)
+- `/pages` و`/community` متاحان في معاينة المصدر حتى بدون تخزين؛ بيانات المنشورات تتطلب تفعيل `ONE_PRIVATE_DIR`.
+- المجتمع حاليًا **للقراءة فقط** عبر المتصفح، وإضافة المواضيع تتم محليًا بأمر `bin/one-posts`. لا حسابات أو تعليقات أو لوحة إدارة متكاملة بعد.
+
 ## استئناف التطوير المعتمد
 
 - [ONE-V02-004 — خطة نقل ARBNT وتسليم الوكلاء](docs/V02_HANDOFF.md)
