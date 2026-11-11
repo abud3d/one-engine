@@ -73,6 +73,11 @@ probe=r'''
 needle=" if(!$errors){\n  if(!is_file(__DIR__.'/app/core.php'))"
 assert needle in s
 s=s.replace(needle,probe+needle,1)
+s=s.replace("if(session_status()!==PHP_SESSION_ACTIVE)session_start(['cookie_httponly'=>true,'cookie_samesite'=>'Strict','use_strict_mode'=>true]);",
+"""$cookiePath=rtrim(str_replace('\\\\','/',dirname((string)($_SERVER['SCRIPT_NAME']??'/'))),'/').'/';
+session_name('ARBNT_'.substr(hash('sha256',__DIR__),0,16));
+if(session_status()!==PHP_SESSION_ACTIVE)session_start(['cookie_path'=>$cookiePath,'cookie_httponly'=>true,'cookie_secure'=>true,'cookie_samesite'=>'Strict','use_strict_mode'=>true]);""")
+assert "session_name('ARBNT_'" in s
 # All archives are self-contained: no fallback outside /current-folder.
 assert "dirname($base).'/arbnt-private'" not in s
 assert "dirname($base).'/arbnt-app'" not in s
@@ -85,6 +90,19 @@ s=p.read_text(encoding='utf-8')
 assert "dirname($base).'/arbnt-private'" in s
 s=s.replace("dirname($base).'/arbnt-private'", "$root.'/.private-data'")
 s=s.replace("$root.'/storage'", "$root.'/.private-data'")
+p.write_text(s,encoding='utf-8')
+
+p=root/'api/community.php'
+s=p.read_text(encoding='utf-8')
+old="session_start(['cookie_httponly'=>true,'cookie_samesite'=>'Lax','use_strict_mode'=>true]);"
+assert old in s, 'Expected original ARBNT session initialization'
+s=s.replace(old,
+"""$sessionBase=rtrim(str_replace('\\\\','/',dirname((string)($_SERVER['SCRIPT_NAME']??'/'))),'/');
+$sessionBase=preg_replace('~/api$~','',$sessionBase);
+$cookiePath=rtrim($sessionBase,'/').'/';
+session_name('ARBNT_'.substr(hash('sha256',$publicRoot),0,16));
+session_start(['cookie_path'=>$cookiePath,'cookie_secure'=>true,'cookie_httponly'=>true,'cookie_samesite'=>'Lax','use_strict_mode'=>true]);""")
+assert "session_name('ARBNT_'" in s
 p.write_text(s,encoding='utf-8')
 
 # All app links are relative to this install folder; remove production canonical
