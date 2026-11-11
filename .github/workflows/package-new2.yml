@@ -1,6 +1,11 @@
 name: Portable ARBNT JSON ZIP
 
 on:
+  pull_request:
+    paths:
+      - "scripts/package-arbnt-new2.sh"
+      - ".github/workflows/package-new2.yml"
+      - "docs/ARBNT_PORTABLE_INSTALL.md"
   workflow_dispatch:
   push:
     branches: [main]
