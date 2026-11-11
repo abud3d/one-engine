@@ -1,0 +1,30 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+use OneEngine\Modules\Runtime\{CommunityCatalog, Site};
+use OneEngine\Storage\JsonStore;
+
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+if ($argc !== 5 || !in_array($argv[1], ['draft', 'publish'], true)) {
+    fwrite(STDERR, "Usage: php bin/one-posts draft|publish slug 'Title' 'Body'\n");
+    exit(2);
+}
+$private = getenv('ONE_PRIVATE_DIR');
+if ($private === false || $private === '') {
+    fwrite(STDERR, "ONE_PRIVATE_DIR must refer to an existing private 0700 directory outside public/.\n");
+    exit(2);
+}
+try {
+    $site = Site::fromArray(require dirname(__DIR__) . '/config/site.php');
+    (new CommunityCatalog(new JsonStore($private, dirname(__DIR__) . '/public')))
+        ->save($site->id, $argv[2], $argv[3], $argv[4], $argv[1] === 'publish');
+    echo "Saved community post {$argv[2]} as {$argv[1]}\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, "Cannot save post: " . $error->getMessage() . "\n");
+    exit(1);
+}
