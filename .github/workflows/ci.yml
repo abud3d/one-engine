@@ -36,6 +36,7 @@ jobs:
           php -l bootstrap.php
           php -l bin/one
           php -l bin/one-arbnt-install
+          php -l bin/one-arbnt-password
           php -l bin/one-posts
           php -l bin/one-pages
       - name: Behavioral, concurrency and HTTP tests
