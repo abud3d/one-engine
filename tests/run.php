@@ -49,7 +49,7 @@ set_error_handler(static function (int $severity, string $message, string $file,
     throw new ErrorException($message, 0, $severity, $file, $line);
 });
 
-foreach (['core', 'storage', 'runtime', 'http'] as $suite) {
+foreach (['core', 'storage', 'runtime', 'pages', 'http'] as $suite) {
     require __DIR__ . '/' . $suite . '.php';
 }
 $failed = 0;
