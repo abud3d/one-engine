@@ -9,3 +9,8 @@
 *.sqlite
 *.sqlite-*
 *.log
+
+# Imported ARBNT module local private data; never commit credentials or user records.
+/arbnt-private/
+/public/community/.arbnt-*.php
+/public/community/.arbnt-*.lock
