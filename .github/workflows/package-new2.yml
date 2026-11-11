@@ -54,7 +54,7 @@ jobs:
           grep -Fq "session_name(" dist/portable-site/api/community.php
           grep -Fq "Require all denied" dist/portable-site/.private-app/.htaccess
           grep -Fq "mkdir(\$private,0700)" dist/portable-site/install.php
-          grep -Fq "fopen(\$probePath,\x27x\x27)" dist/portable-site/install.php
+          grep -Fq 'fopen($probePath,' dist/portable-site/install.php
           if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/install.php; then exit 1; fi
           if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/app/core.php; then exit 1; fi
           echo "PORTABLE PACKAGE CHECKS PASSED"
