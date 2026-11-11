@@ -49,6 +49,8 @@ jobs:
           grep -Fq ".private-data" dist/portable-site/app/core.php
           grep -Fq ".private-app" dist/portable-site/install.php
           grep -Fq "status!==403" dist/portable-site/install.php
+          grep -Fq "session_name(\x27ARBNT_\x27" dist/portable-site/install.php
+          grep -Fq "session_name(\x27ARBNT_\x27" dist/portable-site/api/community.php
           grep -Fq "Require all denied" dist/portable-site/.private-data/.htaccess
           if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/install.php; then exit 1; fi
           if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/app/core.php; then exit 1; fi
