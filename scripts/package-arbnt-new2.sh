@@ -41,7 +41,7 @@ for rel in ('install.php', 'app/core.php'):
     data = path.read_text(encoding='utf-8')
     assert 'arbnt-private' in data, rel
     data = data.replace('arbnt-private', private)
-    data = data.replace('arbnt-app', app)
+    data = data.replace("'/arbnt-app'", "'/arbnt-new2-app'")
     path.write_text(data, encoding='utf-8')
 
 # The existing ARBNT URL handling is relative to the installation folder.
@@ -80,10 +80,10 @@ Options -Indexes
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteRule ^(?:app|storage)(?:/|$) - [F,L,NC]
-RewriteRule (^|/)\\. - [F,L]
-RewriteRule ^BUILD-NEW2\\.txt$ - [F,L,NC]
+RewriteRule (^|/)\. - [F,L]
+RewriteRule ^BUILD-NEW2\.txt$ - [F,L,NC]
 </IfModule>
-<FilesMatch "^(?:core\\.php|\\.arbnt-.*|BUILD-NEW2\\.txt)$">
+<FilesMatch "^(?:core\.php|\.arbnt-.*|BUILD-NEW2\.txt)$">
   Require all denied
 </FilesMatch>
 <IfModule mod_headers.c>
