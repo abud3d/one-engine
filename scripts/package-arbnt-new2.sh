@@ -9,7 +9,7 @@ for f in install.php app/core.php api/community.php; do
   test -f "$source_dir/$f" || { echo "Missing $f" >&2; exit 1; }
 done
 rm -rf "$root"
-mkdir -p "$root/assets" "$root/api" "$root/app" "$root/.private-data" "$root/.private-app"
+mkdir -p "$root/assets" "$root/api" "$root/app" "$root/.private-app"
 for f in index.html community.html communities.html admin.html login.html register.html forgot.html profile.html favorites.html post.html publish.html; do
   test -f "$source_dir/$f" || exit 1
   cp "$source_dir/$f" "$root/$f"
@@ -42,32 +42,65 @@ s=s.replace("if($existing)$errors[]=", "if(array_diff($existing,['.htaccess']))$
 # mandatory: if Apache rules are ignored (e.g., nginx alone), FAIL CLOSED.
 probe=r'''
  if(!$errors){
+  // The archive intentionally has no pre-created private-data directory:
+  // PHP creates it with the correct owner and restrictive permissions.
+  if(is_link($private)||is_file($private))$errors[]='مسار JSON غير آمن.';
+  elseif(!is_dir($private)&&!@mkdir($private,0700))$errors[]='لا يمكن إنشاء مجلد JSON. يحتاج PHP إلى صلاحية الكتابة داخل مجلد هذه النسخة.';
+  if(!$errors&&is_dir($private)&&!is_writable($private)){
+   @chmod($private,0700);
+   // Existing deployments might have an empty .private-data directory
+   // unpacked by a different user. Preserve it under a protected name,
+   // and let PHP provision a fresh directory in this installation only.
+   if(!is_writable($private)){
+    $entries=array_diff(scandir($private)?:[],['.','..','.htaccess']);
+    if(!$entries){
+     $old=$private.'-unwritable-'.bin2hex(random_bytes(6));
+     if(@rename($private,$old)&&@mkdir($private,0700))@chmod($private,0700);
+    }
+   }
+   if(!is_writable($private))$errors[]='PHP لا يستطيع الكتابة في .private-data. يلزم أن تكون ملكية المجلد لمستخدم PHP وصلاحياته 700.';
+  }
+  if(!$errors){
+   $ht=$private.'/.htaccess';
+   $rules="<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n";
+   if(is_link($ht)||(!is_file($ht)&&@file_put_contents($ht,$rules,LOCK_EX)===false))
+    $errors[]='تعذر إنشاء ملف حماية JSON.';
+  }
+  if(!$errors){
    $probe='probe-'.bin2hex(random_bytes(12)).'.txt';
    $probePath=$private.'/'.$probe;
-   if(!is_dir($private) || is_link($private))$errors[]='مجلد البيانات غير آمن.';
-   elseif(file_put_contents($probePath,bin2hex(random_bytes(12)),LOCK_EX)===false)$errors[]='لا يمكن فحص حماية البيانات.';
+   $h=@fopen($probePath,'x');
+   if(!$h)$errors[]='لا يمكن إنشاء ملف اختبار الحماية. يحتاج PHP إلى صلاحية الكتابة في .private-data.';
    else {
-     try {
-       $host=(string)($_SERVER['HTTP_HOST']??'');
-       $requestPath=rtrim(str_replace('\\','/',dirname((string)($_SERVER['SCRIPT_NAME']??'/'))),'/');
-       $url='https://'.$host.$requestPath.'/.private-data/'.$probe;
-       $status=0;
-       if(!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off'
-         && preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/i',$host)){
-         if(function_exists('curl_init')){
-           $ch=curl_init($url);
-           curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>8,CURLOPT_FOLLOWLOCATION=>false]);
-           curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
-         }elseif(ini_get('allow_url_fopen')){
-           $ctx=stream_context_create(['http'=>['ignore_errors'=>true,'timeout'=>8,'follow_location'=>0]]);
-           @file_get_contents($url,false,$ctx);
-           foreach(($http_response_header??[]) as $header)
-             if(preg_match('/^HTTP\/\S+ (\d{3})/',$header,$m)){$status=(int)$m[1];break;}
-         }
+    try{
+     $secret=bin2hex(random_bytes(12));
+     if(fwrite($h,$secret)!==strlen($secret))$errors[]='فشل اختبار الكتابة في مجلد JSON.';
+     fflush($h);
+    }finally{fclose($h);}
+    @chmod($probePath,0600);
+    try{
+     if(!$errors){
+      $host=(string)($_SERVER['HTTP_HOST']??'');
+      $requestPath=rtrim(str_replace('\\','/',dirname((string)($_SERVER['SCRIPT_NAME']??'/'))),'/');
+      $url='https://'.$host.$requestPath.'/.private-data/'.$probe;
+      $status=0;
+      if(!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off'
+       &&preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/i',$host)){
+       if(function_exists('curl_init')){
+        $ch=curl_init($url);curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>8,CURLOPT_FOLLOWLOCATION=>false]);
+        curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+       }elseif(ini_get('allow_url_fopen')){
+        $ctx=stream_context_create(['http'=>['ignore_errors'=>true,'timeout'=>8,'follow_location'=>0]]);
+        @file_get_contents($url,false,$ctx);
+        foreach(($http_response_header??[]) as $header)
+         if(preg_match('/^HTTP\/\S+ (\d{3})/',$header,$m)){$status=(int)$m[1];break;}
        }
-       if($status!==403)$errors[]='توقف التثبيت: تعذر إثبات الحماية (يلزم HTTP 403 لمجلد JSON).';
-     }finally{@unlink($probePath);}
+      }
+      if($status!==403)$errors[]='توقف التثبيت: لم تثبت حماية JSON (HTTP 403).';
+     }
+    }finally{@unlink($probePath);}
    }
+  }
  }
 '''
 needle=" if(!$errors){\n  if(!is_file(__DIR__.'/app/core.php'))"
@@ -144,7 +177,7 @@ Header always set X-Robots-Tag "noindex, nofollow"
 Header always set X-Content-Type-Options "nosniff"
 </IfModule>
 HT
-for d in .private-data .private-app app; do
+for d in .private-app app; do
 cat > "$root/$d/.htaccess" <<'HT'
 <IfModule mod_authz_core.c>
 Require all denied
@@ -154,7 +187,6 @@ Deny from all
 </IfModule>
 HT
 done
-test -f "$root/.private-data/.htaccess"
 test -f "$root/.private-app/.htaccess"
 test -f "$root/app/.htaccess"
 ! grep -q "dirname(\$base).'/arbnt-private'" "$root/install.php"
