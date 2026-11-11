@@ -27,7 +27,9 @@ test('imported ARBNT API supports real session, login and admin access in isolat
     chmod($root . '/arbnt-private/installed.lock', 0600);
 
     $old = getenv('ONE_CODESPACES_PREVIEW');
+    $oldCodespace = getenv('CODESPACE_NAME');
     putenv('ONE_CODESPACES_PREVIEW=1');
+    putenv('CODESPACE_NAME=demo');
     try {
         withServer($root, function (string $base) use ($password): void {
             $request = static function (string $method, string $action, ?string $cookie = null, ?string $csrf = null, ?array $payload = null) use ($base): array {
@@ -48,6 +50,17 @@ test('imported ARBNT API supports real session, login and admin access in isolat
                 check(is_string($body), 'Legacy API did not respond');
                 return [json_decode($body, true, flags: JSON_THROW_ON_ERROR), implode("\n", $http_response_header)];
             };
+            $probe = static function (string $host, string $proto) use ($base): string {
+                $header = "Host: " . $host . "\r\n";
+                if ($proto !== '') $header .= "X-Forwarded-Proto: " . $proto . "\r\n";
+                $ctx = stream_context_create(['http' => ['method' => 'GET',
+                    'header' => $header, 'ignore_errors' => true, 'timeout' => 4]]);
+                file_get_contents($base . '/community/api/community.php?action=session', false, $ctx);
+                return implode("\n", $http_response_header);
+            };
+            check(str_contains($probe('attacker-8080.app.github.dev', 'https'), '403 Forbidden'), 'Foreign host accepted');
+            check(str_contains($probe('demo-8080.app.github.dev', 'http'), '403 Forbidden'), 'Insecure forwarding accepted');
+            check(str_contains($probe('demo-8080.app.github.dev', ''), '200 OK'), 'Codespaces gateway with no XFP rejected');
             [$session, $headers] = $request('GET', 'session');
             check(str_contains($headers, '200 OK'), 'Could not initialize legacy session');
             check($session['user'] === null && is_string($session['csrf']) && strlen($session['csrf']) > 30);
@@ -66,6 +79,11 @@ test('imported ARBNT API supports real session, login and admin access in isolat
             check(str_contains($adminHeaders, '200 OK') && $stats['users'] === 1, 'Real admin stats failed');
         });
     } finally {
+        if ($oldCodespace === false) {
+            putenv('CODESPACE_NAME');
+        } else {
+            putenv('CODESPACE_NAME=' . $oldCodespace);
+        }
         if ($old === false) {
             putenv('ONE_CODESPACES_PREVIEW');
         } else {
