@@ -16,7 +16,7 @@ for directory, forbidden in rules.items():
 
 for path in (root / 'public').rglob('*'):
     if path.is_file():
-        assert path.suffix in {'.php', '.css'}, path
+        assert path.suffix in {'.php', '.css'} or path.relative_to(root / 'public').as_posix() == 'assets/preview-shell.js', path
         assert not path.is_symlink(), path
 
 for name in ['ARCHITECTURE', 'PERMISSIONS', 'STORAGE', 'MIGRATION', 'SOURCE_AUDIT', 'OPERATIONS']:

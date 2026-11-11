@@ -17,6 +17,14 @@ test('page catalog publishes only explicitly public pages, keeps drafts private 
     $app = new Application(demoSite(), dirname(__DIR__) . '/public', $catalog);
     $index = $app->handle('GET', '/pages');
     check($index->status === 200 && str_contains($index->body, 'أول صفحة'));
+    check(str_contains($index->body, 'class="one-nav"'));
+    check(str_contains($index->body, 'class="one-sidebar"'));
+    check(str_contains($index->body, 'id="one-theme-toggle"'));
+    check(str_contains($index->body, '/assets/preview-shell.js'));
+    check(str_contains($index->headers['Content-Security-Policy'], "script-src 'self'"));
+    check($app->handle('GET', '/assets/preview-shell.js')->status === 200);
+    check($app->handle('GET', '/assets/preview-shell.css')->status === 200);
+    check($app->handle('GET', '/assets/preview-shell.js')->headers['Content-Type'] === 'text/javascript; charset=utf-8');
     check(!str_contains($index->body, 'Private') && !str_contains($index->body, 'Foreign'));
     check($app->handle('GET', '/pages/draft')->status === 404);
     check($app->handle('GET', '/pages/foreign')->status === 404);
@@ -26,6 +34,7 @@ test('page catalog publishes only explicitly public pages, keeps drafts private 
     check(str_contains($html->body, '&lt;script&gt;'));
     check($app->handle('POST', '/pages')->status === 405);
     check($app->handle('GET', '/pages/../config')->status === 404);
+    check((new Application(demoSite(), dirname(__DIR__) . '/public'))->handle('GET', '/assets/preview-shell.js')->status === 404);
     check(str_contains($app->handle('GET', '/')->body, 'تصفح الصفحات المنشورة'));
 });
 
