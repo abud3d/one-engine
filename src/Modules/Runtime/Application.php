@@ -34,6 +34,8 @@ final readonly class Application
         // Source preview only: exported runtimes omit these preview assets.
         $preview = is_file($this->publicRoot . '/assets/preview-shell.css')
             && is_file($this->publicRoot . '/assets/preview-shell.js');
+        $communityLink = is_file($this->publicRoot . '/community/community.html')
+            ? '/community/community.html' : '/community';
         if ($path === '/') {
             $body = $renderer->home($this->site, self::demoPage($this->site));
             if ($preview) {
