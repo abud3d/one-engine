@@ -90,3 +90,28 @@ foreach (\OneEngine\Modules\Runtime\Mode::cases() as $mode) {
         }, $mode !== \OneEngine\Modules\Runtime\Mode::Static);
     });
 }
+
+test('mounted ARBNT pages, assets and administration UI are served without exposing PHP sources', function (): void {
+    withServer(dirname(__DIR__), function (string $base): void {
+        foreach (['/community/community.html' => 'النقاشات',
+                  '/community/login.html' => 'تسجيل',
+                  '/community/register.html' => 'تسجيل',
+                  '/community/admin.html' => 'إدارة'] as $uri => $text) {
+            [$body, $headers] = httpRequest($base . $uri);
+            check(str_contains($headers, '200 OK'), 'Missing legacy view: ' . $uri);
+            check(str_contains($body, $text), 'Empty legacy view: ' . $uri);
+            check(str_contains($headers, 'X-Robots-Tag: noindex'), 'Preview must stay noindex');
+        }
+        [$css, $headers] = httpRequest($base . '/community/assets/shell.css');
+        check(str_contains($headers, '200 OK') && str_contains($css, '.arb-shell'));
+        [$js, $headers] = httpRequest($base . '/community/assets/shell.js');
+        check(str_contains($headers, '200 OK') && str_contains($js, 'ARBNT'));
+        foreach (['/community/app/core.php','/community/install.php','/community/.arbnt-storage.php','/community/api/index.php'] as $uri) {
+            [$body, $headers] = httpRequest($base . $uri);
+            check(str_contains($headers, '404 Not Found'), 'Private legacy path exposed: ' . $uri);
+        }
+        [$body, $headers] = httpRequest($base . '/community/api/community.php');
+        check(str_contains($headers, '403 Forbidden'), 'Plain HTTP legacy API must reject requests');
+        check(!str_contains($body, 'function arbnt_data_dir'));
+    });
+});
