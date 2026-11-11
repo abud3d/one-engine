@@ -6,13 +6,13 @@ declare(strict_types=1);
 $path = explode('?', $_SERVER['REQUEST_URI'] ?? '/', 2)[0];
 // Mounted ARBNT application: explicit file allowlist, not a directory passthrough.
 // The legacy API is unchanged in functionality; its PHP core lives outside public/.
-if ($path === '/community' || $path === '/community/') {
+if (is_file(dirname(__DIR__) . '/src/LegacyArbnt/core.php') && ($path === '/community' || $path === '/community/')) {
     header('Location: /community/community.html', true, 302);
     header('Cache-Control: no-store');
     header('X-Robots-Tag: noindex, nofollow');
     return;
 }
-if (str_starts_with($path, '/community/')) {
+if (is_file(dirname(__DIR__) . '/src/LegacyArbnt/core.php') && str_starts_with($path, '/community/')) {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $html = preg_match('~\\A/community/(?:admin|communities|community|favorites|forgot|index|login|post|profile|publish|register)\\.html\\z~D', $path);
     $asset = preg_match('~\\A/community/assets/[a-z][a-z0-9-]*\\.(?:css|js)\\z~D', $path);
