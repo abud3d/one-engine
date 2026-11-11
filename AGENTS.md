@@ -13,3 +13,7 @@ the requested phase. Do not deploy to a VPS without explicit owner approval.
 - Run `php tests/run.php`, `python3 tests/check_structure.py` and PHP lint after relevant changes.
 - Use a separate branch and a PR; report actual GitHub Actions results. Do not merge unless requested.
 - License selection remains an owner decision. Do not assign a license by inference.
+
+## Approved phase 2 / cross-agent handoff
+
+**Read [docs/V02_HANDOFF.md](docs/V02_HANDOFF.md) before any ONE Engine v0.2 work.** Resume marker: `ONE-V02-004`. Consult `abud3d/talal-prompts` and TDP-001 as a reusable lessons library, not a blanket override of local rules. Preserve the functioning ARBNT source and UI patterns; migrate incrementally only after code/security review. A real user flow, tests, commit/PR, and honest preview status are required for every slice. Never claim accounts, admin, CMS, or VPS publishing exist until actually implemented. Do not modify ARBNT or deploy to production without explicit approval.
