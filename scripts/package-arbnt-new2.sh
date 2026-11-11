@@ -132,11 +132,11 @@ cat > "$root/.htaccess" <<'HT'
 Options -Indexes
 <IfModule mod_rewrite.c>
 RewriteEngine On
-RewriteRule ^(?:\\.private-data|\\.private-app|app|storage)(?:/|$) - [F,L,NC]
-RewriteRule (^|/)\\. - [F,L]
-RewriteRule ^BUILD\\.txt$ - [F,L,NC]
+RewriteRule ^(?:\.private-data|\.private-app|app|storage)(?:/|$) - [F,L,NC]
+RewriteRule (^|/)\. - [F,L]
+RewriteRule ^BUILD\.txt$ - [F,L,NC]
 </IfModule>
-<FilesMatch "^(?:\\.arbnt-.*|BUILD\\.txt)$">
+<FilesMatch "^(?:\.arbnt-.*|BUILD\.txt)$">
 Require all denied
 </FilesMatch>
 <IfModule mod_headers.c>
