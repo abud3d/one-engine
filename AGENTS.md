@@ -17,3 +17,7 @@ the requested phase. Do not deploy to a VPS without explicit owner approval.
 ## Approved phase 2 / cross-agent handoff
 
 **Read [docs/V02_HANDOFF.md](docs/V02_HANDOFF.md) before any ONE Engine v0.2 work.** Resume marker: `ONE-V02-004`. Consult `abud3d/talal-prompts` and TDP-001 as a reusable lessons library, not a blanket override of local rules. Preserve the functioning ARBNT source and UI patterns; migrate incrementally only after code/security review. A real user flow, tests, commit/PR, and honest preview status are required for every slice. Never claim accounts, admin, CMS, or VPS publishing exist until actually implemented. Do not modify ARBNT or deploy to production without explicit approval.
+
+## Full legacy ARBNT mount
+
+Read [docs/FULL_ARBNT_MOUNT.md](docs/FULL_ARBNT_MOUNT.md). Full original ARBNT frontend and API are mounted for **Codespaces preview** under `/community`; `src/LegacyArbnt/core.php` stays outside webroot. Never serve arbitrary files from that tree. The old ARBNT account/authorization logic is an isolated legacy module, not yet ONE Engine native identity or central administration. No production deployment or existing ARBNT data migration. Do not advertise all features as tested; verify login, posts, comments, admin, email and notifications individually.
