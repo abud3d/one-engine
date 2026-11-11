@@ -17,7 +17,6 @@
 .one-preview .grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:28px}
 .one-preview .badge{color:var(--one-accent);border-color:var(--one-border)}
 .one-preview footer{color:var(--one-muted)}
-@media(prefers-color-scheme:dark){.one-preview:not(:has(html)){color-scheme:normal}}
 @media(prefers-color-scheme:dark){html:not([data-theme]) .one-preview{--one-bg:#11171c;--one-panel:#1b242b;--one-fg:#ecf3f2;--one-muted:#b7c7c8;--one-border:#33434b;--one-accent:#75d4b9}}
 html[data-theme="dark"] .one-preview{--one-bg:#11171c;--one-panel:#1b242b;--one-fg:#ecf3f2;--one-muted:#b7c7c8;--one-border:#33434b;--one-accent:#75d4b9}
 html[data-theme="light"] .one-preview{--one-bg:#f3f7f3;--one-panel:#fff;--one-fg:#172d35;--one-muted:#53666a;--one-border:#d9e4df;--one-accent:#0b6555}
