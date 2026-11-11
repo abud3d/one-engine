@@ -35,6 +35,8 @@ $archive = realpath($argv[1]);
 requireCheck(is_string($archive), 'CMS archive not found.');
 $work = $argv[2];
 requireCheck(!file_exists($work) && mkdir($work, 0700, true), 'Choose a new acceptance directory.');
+$work = realpath($work);
+requireCheck(is_string($work), 'Cannot resolve acceptance directory.');
 $zip = new ZipArchive();
 requireCheck($zip->open($archive) === true, 'Cannot open CMS archive.');
 try {
