@@ -45,7 +45,7 @@ final readonly class AdminApplication
                 } elseif ($action === 'menu') {
                     $this->content->saveMenu($this->siteId, $actor, $post);
                 } elseif ($action === 'user') {
-                    if (!Access::allows($actor, Action::Delete)) {
+                    if (!Access::allows($actor, Action::Delete, null, $this->siteId)) {
                         throw new \DomainException('Forbidden.');
                     }
                     $this->identity->create($this->siteId, (string) $post['id'], (string) $post['username'], (string) $post['password'], (string) $post['role']);
@@ -77,6 +77,9 @@ final readonly class AdminApplication
 
     private function dashboard(array $actor, string $message): string
     {
+        if (($actor['role'] ?? '') === 'member') {
+            return $this->shell('حساب العضو', '<header><b>ONE Engine</b><a href="/">الموقع</a><form method="post"><input type="hidden" name="csrf" value="' . self::e(SessionGuard::csrf()) . '"><input type="hidden" name="action" value="logout"><button>خروج</button></form></header><main><h1>حساب العضو</h1><p>تم تسجيل الدخول. يمكنك الآن فتح الصفحات المتاحة للأعضاء.</p></main>');
+        }
         $sections = $this->content->list($this->siteId, 'sections');
         $pages = $this->content->list($this->siteId, 'cms_pages');
         $menus = $this->content->list($this->siteId, 'menus');

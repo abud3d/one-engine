@@ -44,16 +44,81 @@ final readonly class IdentityService
         });
     }
 
+    /** Import a reviewed, offline ARBNT users export. Never reads production storage itself. */
+    public function importArbnt(string $siteId, array $rows): int
+    {
+        Identifier::check($siteId);
+        if (!array_is_list($rows) || count($rows) > 500) {
+            throw new \InvalidArgumentException('Invalid ARBNT user export.');
+        }
+        $accepted = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || !empty($row['banned']) || (isset($row['verified']) && $row['verified'] !== true)) {
+                continue;
+            }
+            $id = (string) ($row['id'] ?? '');
+            $username = strtolower((string) ($row['username'] ?? ''));
+            $hash = (string) ($row['password_hash'] ?? '');
+            $role = in_array(($row['role'] ?? ''), self::ROLES, true) ? $row['role'] : 'member';
+            Identifier::check($id);
+            self::validateUsername($username);
+            if (password_get_info($hash)['algo'] === null) {
+                throw new \InvalidArgumentException('Invalid password hash in ARBNT export.');
+            }
+            $accepted[] = ['id' => $id, 'username' => $username, 'password_hash' => $hash, 'role' => $role, 'active' => true, 'source' => 'arbnt'];
+        }
+        $this->store->update($siteId, 'users', static function (array $users) use ($accepted): array {
+            if (!array_is_list($users)) {
+                throw new \UnexpectedValueException('Invalid user index.');
+            }
+            $ids = array_column($users, null, 'id');
+            $names = array_column($users, null, 'username');
+            foreach ($accepted as $user) {
+                if (isset($ids[$user['id']]) || isset($names[$user['username']])) {
+                    throw new \DomainException('ARBNT user conflicts with an existing account.');
+                }
+                $users[] = $user;
+            }
+            return $users;
+        });
+        return count($accepted);
+    }
+
     /** @return array{id:string,username:string,role:string}|null */
     public function authenticate(string $siteId, string $username, string $password): ?array
     {
         Identifier::check($siteId);
         self::validateUsername($username);
+        $attemptKey = hash('sha256', $username);
+        $attempts = $this->store->update($siteId, 'login_attempts', static function (array $all) use ($attemptKey): array {
+            $now = time();
+            foreach ($all as $key => $times) {
+                if (!is_array($times)) {
+                    throw new \UnexpectedValueException('Invalid login attempt record.');
+                }
+                $all[$key] = array_values(array_filter($times, static fn ($time): bool => is_int($time) && $time > $now - 600));
+                if ($all[$key] === []) {
+                    unset($all[$key]);
+                }
+            }
+            if (count($all[$attemptKey] ?? []) >= 5) {
+                throw new \DomainException('Too many login attempts.');
+            }
+            if (count($all) >= 500 && !isset($all[$attemptKey])) {
+                throw new \DomainException('Login service is temporarily limited.');
+            }
+            $all[$attemptKey][] = $now;
+            return $all;
+        });
         foreach ($this->store->read($siteId, 'users') as $user) {
             if (!is_array($user) || !isset($user['id'], $user['username'], $user['password_hash'], $user['role'], $user['active'])) {
                 throw new \UnexpectedValueException('Invalid user record.');
             }
             if ($user['username'] === $username && $user['active'] === true && password_verify($password, (string) $user['password_hash'])) {
+                $this->store->update($siteId, 'login_attempts', static function (array $all) use ($attemptKey): array {
+                    unset($all[$attemptKey]);
+                    return $all;
+                });
                 return ['id' => (string) $user['id'], 'username' => $username, 'role' => (string) $user['role']];
             }
         }

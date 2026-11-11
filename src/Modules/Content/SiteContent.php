@@ -28,7 +28,7 @@ final readonly class SiteContent
     /** @param array{id:string,role:string} $actor */
     public function saveMenu(string $siteId, array $actor, array $input): void
     {
-        if (!Access::allows($actor, Action::Update)) {
+        if (!Access::allows($actor, Action::Update, null, $siteId)) {
             throw new \DomainException('Forbidden.');
         }
         $id = self::slug((string) ($input['id'] ?? ''));
@@ -61,7 +61,7 @@ final readonly class SiteContent
             if (!is_array($record) || !isset($record['id'])) {
                 throw new \UnexpectedValueException('Invalid content record.');
             }
-            if ($publishedOnly && !Access::allows($actor, Action::Read, $record)) {
+            if ($publishedOnly && !Access::allows($actor, Action::Read, $record, $siteId)) {
                 continue;
             }
             $visible[] = $record;
@@ -74,7 +74,7 @@ final readonly class SiteContent
         $slug = self::slug($slug);
         foreach ($this->list($siteId, 'cms_pages') as $page) {
             if ($page['id'] === $slug) {
-                return Access::allows($actor, Action::Read, $page) ? $page : null;
+                return Access::allows($actor, Action::Read, $page, $siteId) ? $page : null;
             }
         }
         return null;
@@ -90,14 +90,14 @@ final readonly class SiteContent
             }
         }
         $action = $existing === null ? Action::Create : Action::Update;
-        if (!Access::allows($actor, $action, $existing)) {
+        if (!Access::allows($actor, $action, $existing, $siteId)) {
             throw new \DomainException('Forbidden.');
         }
         $state = (string) ($input['state'] ?? 'draft');
         if (!in_array($state, ['draft', 'published'], true)) {
             throw new \InvalidArgumentException('Invalid state.');
         }
-        if ($state === 'published' && !Access::allows($actor, Action::Publish, $existing)) {
+        if ($state === 'published' && !Access::allows($actor, Action::Publish, $existing, $siteId)) {
             throw new \DomainException('Publishing forbidden.');
         }
         $title = self::text((string) ($input['title'] ?? ''), 200, false);

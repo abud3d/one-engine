@@ -25,13 +25,23 @@ final class SessionGuard
         session_regenerate_id(true);
         $_SESSION['actor'] = $user;
         $_SESSION['site_id'] = $siteId;
+        $_SESSION['last_activity'] = time();
         $_SESSION['csrf'] = Csrf::issue();
     }
 
     public static function actor(string $siteId): ?array
     {
         $actor = $_SESSION['actor'] ?? null;
-        return ($_SESSION['site_id'] ?? null) === $siteId && is_array($actor) ? $actor : null;
+        $last = $_SESSION['last_activity'] ?? 0;
+        if (!is_int($last) || $last < time() - 1800) {
+            unset($_SESSION['actor'], $_SESSION['site_id'], $_SESSION['last_activity']);
+            return null;
+        }
+        if (($_SESSION['site_id'] ?? null) !== $siteId || !is_array($actor)) {
+            return null;
+        }
+        $_SESSION['last_activity'] = time();
+        return $actor;
     }
 
     public static function csrf(): string

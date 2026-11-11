@@ -36,20 +36,19 @@ Unsupported capability values are rejected at object construction.
 | Matching allow plus explicit deny | Deny |
 | Central administrator with no local site grant | Deny |
 
-Ownership-based policy, community membership and roles will expand into explicit
-site/object grants in future application services. Relation existence by itself
+The operational CMS converts trusted site roles into explicit site grants before
+calling this evaluator. Per-user and per-object grant editing remains future work.
+Relation existence by itself
 does not grant access. A private reply/internal note must have its own policy;
 access to a parent must never expose private child content implicitly.
 
-The current `Read`, `Update`, `Delete`, `Comment` actions are a foundation
-vocabulary, not implemented mutation endpoints. The runtime uses only anonymous
-Read; it exposes no authentication or write routes. Future handlers must load
+The action vocabulary includes `Read`, `Create`, `Update`, `Publish`, `Delete`
+and `Comment`. CMS create, update, publish and read handlers load
 the object under the trusted site context, check capability and permissions,
 then perform any state validation and transaction. Recheck relevant policy
 inside the same transaction when policy can change concurrently.
 
-Before adding writes: authenticate securely, use strict HttpOnly Secure SameSite
-sessions with ID rotation, check CSRF and full configured origin, bound request
-bytes and UTF-8 lengths, rate-limit, audit, and escape output. CSRF helper tests
-do not imply these future routes are already protected. `config/php.ini` provides
-session defaults but 0.1.0 does not start sessions.
+The CMS uses HttpOnly SameSite=Strict cookies (Secure under HTTPS), session ID
+rotation and idle expiry, CSRF tokens, bounded inputs, account rate limits and
+escaped output. A durable audit log and configurable Origin allowlist remain
+before production deployment; see `KNOWN_ISSUES.md`.
