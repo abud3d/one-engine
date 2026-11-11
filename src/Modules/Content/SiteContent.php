@@ -45,6 +45,32 @@ final readonly class SiteContent
         $this->replace($siteId, 'menus', $id, compact('id', 'label', 'url', 'position', 'visibility'));
     }
 
+    /** @param array{id:string,role:string} $actor */
+    public function delete(string $siteId, array $actor, string $kind, string $id): void
+    {
+        if (!Access::allows($actor, Action::Delete, null, $siteId) || !in_array($kind, ['sections', 'cms_pages', 'menus'], true)) {
+            throw new \DomainException('Forbidden.');
+        }
+        $id = self::slug($id);
+        if ($kind === 'sections') {
+            foreach ($this->list($siteId, 'cms_pages') as $page) {
+                if (($page['section_id'] ?? null) === $id) {
+                    throw new \DomainException('Section still contains pages.');
+                }
+            }
+        }
+        $this->store->update($siteId, $kind, static function (array $records) use ($id): array {
+            if (!array_is_list($records)) {
+                throw new \UnexpectedValueException('Invalid content index.');
+            }
+            $next = array_values(array_filter($records, static fn ($record): bool => is_array($record) && ($record['id'] ?? null) !== $id));
+            if (count($next) === count($records)) {
+                throw new \DomainException('Content not found.');
+            }
+            return $next;
+        });
+    }
+
     /** @return list<array<string,mixed>> */
     public function list(string $siteId, string $kind, ?array $actor = null, bool $publishedOnly = false): array
     {
@@ -115,6 +141,8 @@ final readonly class SiteContent
             $record['section_id'] = ($input['section_id'] ?? '') === '' ? null : self::slug((string) $input['section_id']);
             $record['body'] = self::text((string) ($input['body'] ?? ''), 100000, true);
             $record['blocks'] = self::blocks($input['blocks'] ?? []);
+            $record['allowed_users'] = self::identifiers($input['allowed_users'] ?? []);
+            $record['allowed_editors'] = self::identifiers($input['allowed_editors'] ?? []);
         }
         $this->replace($siteId, $kind, $id, $record);
     }
@@ -156,6 +184,24 @@ final readonly class SiteContent
             throw new \InvalidArgumentException('Invalid visibility.');
         }
         return $value;
+    }
+
+    /** @return list<string> */
+    private static function identifiers(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = array_values(array_filter(array_map('trim', explode(',', $value)), static fn (string $id): bool => $id !== ''));
+        }
+        if (!is_array($value) || !array_is_list($value) || count($value) > 50) {
+            throw new \InvalidArgumentException('Invalid principal list.');
+        }
+        foreach ($value as $id) {
+            if (!is_string($id)) {
+                throw new \InvalidArgumentException('Invalid principal identifier.');
+            }
+            Identifier::check($id);
+        }
+        return array_values(array_unique($value));
     }
 
     /** @return list<array{type:string,content:string,visibility:string,column:int}> */

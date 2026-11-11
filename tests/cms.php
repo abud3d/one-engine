@@ -57,6 +57,14 @@ test('sections pages blocks and menus persist with isolation and visibility', fu
     check($content->findPage('other', 'welcome', $member) === null);
     rejects(fn () => $content->savePage('demo', $member, ['id' => 'bad', 'title' => 'Bad']), DomainException::class);
     rejects(fn () => $content->saveMenu('demo', $admin, ['id' => 'evil', 'label' => 'X', 'url' => 'https://evil.invalid', 'position' => 'header']), InvalidArgumentException::class);
+    $content->savePage('demo', $admin, ['id' => 'assigned', 'title' => 'محدد', 'description' => '', 'body' => '', 'section_id' => '', 'state' => 'published', 'visibility' => 'private', 'layout' => 'one', 'blocks' => [], 'allowed_users' => ['member-1'], 'allowed_editors' => ['editor-1']]);
+    check($content->findPage('demo', 'assigned', $member) !== null);
+    check($content->findPage('demo', 'assigned', ['id' => 'member-2', 'role' => 'member']) === null);
+    rejects(fn () => $content->savePage('demo', ['id' => 'editor-2', 'role' => 'editor'], ['id' => 'assigned', 'title' => 'ممنوع', 'state' => 'draft']), DomainException::class);
+    rejects(fn () => $content->delete('demo', $admin, 'sections', 'news'), DomainException::class);
+    $content->delete('demo', $admin, 'cms_pages', 'assigned');
+    check($content->findPage('demo', 'assigned', $member) === null);
+    rejects(fn () => $content->delete('demo', $editor, 'cms_pages', 'welcome'), DomainException::class);
 });
 
 test('public CMS route escapes content and hides drafts private blocks and foreign sites', function () use ($temp): void {
@@ -76,6 +84,10 @@ test('public CMS route escapes content and hides drafts private blocks and forei
     check(str_contains($page->body, 'الرئيسية'));
     check($app->handle('GET', '/p/draft')->status === 404);
     check($app->handle('GET', '/p/foreign')->status === 404);
+    check($app->handle('GET', '/sections/news')->status === 200);
+    $editorApp = new Application(demoSite(), dirname(__DIR__) . '/public', null, null, $content, ['id' => 'editor-1', 'role' => 'editor']);
+    check($editorApp->handle('GET', '/preview/draft')->status === 200);
+    check($app->handle('GET', '/preview/draft')->status === 404);
 });
 
 test('content export includes only public published pages with independent SEO', function () use ($temp): void {
@@ -136,10 +148,28 @@ test('administrator browser flow logs in creates publishes and exposes only publ
         check(str_contains(implode("\n", $headers), '200 OK'));
         [$dashboard] = $request($base . '/admin', 'GET', [], $cookie);
         preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
-        $page = ['csrf' => $token[1], 'action' => 'page', 'id' => 'browser-page', 'title' => 'صفحة المتصفح', 'description' => 'وصف', 'body' => 'محتوى فعلي', 'section_id' => 'news', 'blocks' => '[]', 'layout' => 'two', 'visibility' => 'public', 'state' => 'published'];
+        $page = ['csrf' => $token[1], 'action' => 'page', 'id' => 'browser-page', 'title' => 'صفحة المتصفح', 'description' => 'وصف', 'body' => 'محتوى فعلي', 'section_id' => 'news', 'blocks' => '[{"type":"heading","content":"بلوك العنوان","visibility":"public","column":1}]', 'allowed_users' => '', 'allowed_editors' => '', 'layout' => 'two', 'visibility' => 'public', 'state' => 'draft'];
         [$saved, $headers] = $request($base . '/admin', 'POST', $page, $cookie);
         check(str_contains(implode("\n", $headers), '200 OK') && str_contains($saved, 'تم الحفظ'));
+        [$preview, $headers] = $request($base . '/preview/browser-page', 'GET', [], $cookie);
+        check(str_contains(implode("\n", $headers), '200 OK') && str_contains($preview, 'بلوك العنوان'));
+        [, $headers] = $request($base . '/p/browser-page');
+        check(str_contains(implode("\n", $headers), '404 Not Found'));
+        $page['state'] = 'published';
+        [$dashboard] = $request($base . '/admin', 'GET', [], $cookie);
+        preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
+        $page['csrf'] = $token[1];
+        $request($base . '/admin', 'POST', $page, $cookie);
+        [$dashboard] = $request($base . '/admin', 'GET', [], $cookie);
+        preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
+        $request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'menu', 'id' => 'browser-link', 'label' => 'الرابط التجريبي', 'url' => '/p/browser-page', 'position' => 'header', 'visibility' => 'public'], $cookie);
         [$public, $headers] = $request($base . '/p/browser-page');
-        check(str_contains(implode("\n", $headers), '200 OK') && str_contains($public, 'محتوى فعلي'));
+        check(str_contains(implode("\n", $headers), '200 OK') && str_contains($public, 'محتوى فعلي') && str_contains($public, 'الرابط التجريبي'));
+        [$section, $headers] = $request($base . '/sections/news');
+        check(str_contains(implode("\n", $headers), '200 OK') && str_contains($section, 'صفحة المتصفح'));
     }, true, ['ONE_PRIVATE_DIR' => $private]);
+    $export = $temp . '/browser-flow-export';
+    $site = new Site('one-demo', 'Demo', 'Description', 'https://demo.example', \OneEngine\Modules\Runtime\Mode::Static, true);
+    (new ContentReleaseBuilder(dirname(__DIR__), new SiteContent($store)))->build($site, $export);
+    check(is_file($export . '/p/browser-page/index.html') && str_contains((string) file_get_contents($export . '/p/browser-page/index.html'), 'بلوك العنوان'));
 });

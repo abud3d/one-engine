@@ -49,6 +49,8 @@ final readonly class AdminApplication
                         throw new \DomainException('Forbidden.');
                     }
                     $this->identity->create($this->siteId, (string) $post['id'], (string) $post['username'], (string) $post['password'], (string) $post['role']);
+                } elseif ($action === 'delete') {
+                    $this->content->delete($this->siteId, $actor, (string) ($post['kind'] ?? ''), (string) ($post['id'] ?? ''));
                 } else {
                     throw new \InvalidArgumentException('Unknown action.');
                 }
@@ -88,10 +90,12 @@ final readonly class AdminApplication
         foreach ($sections as $section) {
             $sectionOptions .= '<option value="' . self::e((string) $section['id']) . '">' . self::e((string) $section['title']) . '</option>';
         }
-        $list = static function (array $records): string {
+        $list = static function (array $records, string $preview = '', string $kind = '') use ($token, $actor): string {
             $html = '<ul>';
             foreach ($records as $record) {
-                $html .= '<li><b>' . self::e((string) ($record['title'] ?? $record['label'] ?? $record['id'])) . '</b> <code>' . self::e((string) $record['id']) . '</code> ' . self::e((string) ($record['state'] ?? $record['position'] ?? '')) . '</li>';
+                $link = $preview === '' ? '' : ' <a href="' . $preview . self::e((string) $record['id']) . '">معاينة</a>';
+                $delete = ($actor['role'] ?? '') === 'admin' && $kind !== '' ? '<form class="inline" method="post"><input type="hidden" name="csrf" value="' . $token . '"><input type="hidden" name="action" value="delete"><input type="hidden" name="kind" value="' . self::e($kind) . '"><input type="hidden" name="id" value="' . self::e((string) $record['id']) . '"><button>حذف</button></form>' : '';
+                $html .= '<li><b>' . self::e((string) ($record['title'] ?? $record['label'] ?? $record['id'])) . '</b> <code>' . self::e((string) $record['id']) . '</code> ' . self::e((string) ($record['state'] ?? $record['position'] ?? '')) . $link . $delete . '</li>';
             }
             return $html . '</ul>';
         };
@@ -99,9 +103,9 @@ final readonly class AdminApplication
         $body = '<header><b>ONE Engine</b><nav><a href="/">الموقع</a><a href="/admin">الإدارة</a></nav><form method="post"><input type="hidden" name="csrf" value="' . $token . '"><input type="hidden" name="action" value="logout"><button>خروج</button></form></header><main>'
             . '<h1>لوحة الموقع</h1><p>المستخدم: ' . self::e((string) $actor['username']) . ' — ' . self::e((string) $actor['role']) . '</p>' . self::notice($message)
             . '<section class="stats"><article>الأقسام <b>' . count($sections) . '</b></article><article>الصفحات <b>' . count($pages) . '</b></article><article>الروابط <b>' . count($menus) . '</b></article></section>'
-            . '<section><h2>الأقسام</h2>' . $list($sections) . self::form($token, 'section', '<label>الرابط<input name="id" required pattern="[a-z0-9][a-z0-9_-]{0,63}"></label><label>العنوان<input name="title" required></label><label>الوصف<textarea name="description"></textarea></label>' . self::choices(true)) . '</section>'
-            . '<section><h2>الصفحات</h2>' . $list($pages) . self::form($token, 'page', '<label>الرابط<input name="id" required pattern="[a-z0-9][a-z0-9_-]{0,63}"></label><label>العنوان<input name="title" required></label><label>القسم<select name="section_id">' . $sectionOptions . '</select></label><label>المحتوى<textarea name="body"></textarea></label><label>البلوكات JSON<textarea name="blocks" placeholder="' . $blocksExample . '"></textarea></label>' . self::choices(true)) . '</section>'
-            . '<section><h2>القوائم</h2>' . $list($menus) . self::form($token, 'menu', '<label>المعرف<input name="id" required></label><label>النص<input name="label" required></label><label>الرابط المحلي<input name="url" value="/" required></label><label>الموضع<select name="position"><option>header</option><option>sidebar</option><option>footer</option></select></label>' . self::visibility()) . '</section>';
+            . '<section><h2>الأقسام</h2>' . $list($sections, '', 'sections') . self::form($token, 'section', '<label>الرابط<input name="id" required pattern="[a-z0-9][a-z0-9_-]{0,63}"></label><label>العنوان<input name="title" required></label><label>الوصف<textarea name="description"></textarea></label>' . self::choices(true)) . '</section>'
+            . '<section><h2>الصفحات</h2>' . $list($pages, '/preview/', 'cms_pages') . self::form($token, 'page', '<label>الرابط<input name="id" required pattern="[a-z0-9][a-z0-9_-]{0,63}"></label><label>العنوان<input name="title" required></label><label>القسم<select name="section_id">' . $sectionOptions . '</select></label><label>المحتوى<textarea name="body"></textarea></label><label>البلوكات JSON<textarea name="blocks" placeholder="' . $blocksExample . '"></textarea></label><label>قراء محددون (معرفات مفصولة بفاصلة)<input name="allowed_users"></label><label>محررون محددون (فارغ = كل المحررين)<input name="allowed_editors"></label>' . self::choices(true)) . '</section>'
+            . '<section><h2>القوائم</h2>' . $list($menus, '', 'menus') . self::form($token, 'menu', '<label>المعرف<input name="id" required></label><label>النص<input name="label" required></label><label>الرابط المحلي<input name="url" value="/" required></label><label>الموضع<select name="position"><option>header</option><option>sidebar</option><option>footer</option></select></label>' . self::visibility()) . '</section>';
         if (($actor['role'] ?? '') === 'admin') {
             $body .= '<section><h2>المستخدمون</h2>' . $list($this->identity->all($this->siteId)) . self::form($token, 'user', '<label>المعرف<input name="id" required></label><label>اسم الدخول<input name="username" required></label><label>كلمة المرور<input type="password" name="password" minlength="12" required></label><label>الدور<select name="role"><option>editor</option><option>member</option><option>admin</option></select></label>') . '</section>';
         }

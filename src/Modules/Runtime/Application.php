@@ -53,6 +53,23 @@ final readonly class Application
                 ? new Response(404, 'Not found', $headers)
                 : new Response(200, (new CmsRenderer())->page($this->site, $page, $this->cms->list($this->site->id, 'menus'), $this->actor), $headers);
         }
+        if ($this->cms !== null && $this->actor !== null && preg_match('~\A/preview/([a-z0-9][a-z0-9_-]{0,63})\z~D', $path, $matched)) {
+            $page = $this->cms->findPage($this->site->id, $matched[1], $this->actor);
+            if ($page === null || !in_array(($this->actor['role'] ?? ''), ['admin', 'editor'], true)) {
+                return new Response(404, 'Not found', $headers);
+            }
+            $headers['X-Robots-Tag'] = 'noindex, nofollow';
+            return new Response(200, (new CmsRenderer())->page($this->site, $page, $this->cms->list($this->site->id, 'menus'), $this->actor), $headers);
+        }
+        if ($this->cms !== null && preg_match('~\A/sections/([a-z0-9][a-z0-9_-]{0,63})\z~D', $path, $matched)) {
+            $items = '';
+            foreach ($this->cms->list($this->site->id, 'cms_pages', $this->actor, true) as $page) {
+                if (($page['section_id'] ?? null) === $matched[1]) {
+                    $items .= '<li><a href="/p/' . Renderer::escape((string) $page['id']) . '">' . Renderer::escape((string) $page['title']) . '</a></li>';
+                }
+            }
+            return new Response(200, '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>القسم</title><link rel="stylesheet" href="/assets/app.css"><main><h1>صفحات القسم</h1><ul>' . $items . '</ul></main></html>', $headers);
+        }
         if ($preview && $path === '/pages') {
             $headers['Content-Security-Policy'] = str_replace("style-src 'self';", "style-src 'self'; script-src 'self';", $headers['Content-Security-Policy']);
             return new Response(200, (new PagePreview())->index($this->site, ($this->pages?->published($this->site->id) ?? [])), $headers);

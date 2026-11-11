@@ -20,9 +20,15 @@ final class Access
         $grants = [];
         if ($principal->id !== null) {
             $role = $actor['role'] ?? '';
-            $roleAllows = $role === 'admin'
-                || ($role === 'editor' && in_array($action, [Action::Read, Action::Create, Action::Update, Action::Publish], true))
-                || ($role === 'member' && $action === Action::Read && $state === 'published' && $recordVisibility === 'members');
+            $editors = is_array($record['allowed_editors'] ?? null) ? $record['allowed_editors'] : [];
+            $readers = is_array($record['allowed_users'] ?? null) ? $record['allowed_users'] : [];
+            $editorAllows = $role === 'editor' && (
+                in_array($action, [Action::Read, Action::Create], true)
+                || (in_array($action, [Action::Update, Action::Publish], true) && ($record === null || $editors === [] || in_array($principal->id, $editors, true)))
+            );
+            $memberAllows = $role === 'member' && $action === Action::Read && $state === 'published'
+                && ($recordVisibility === 'members' || in_array($principal->id, $readers, true));
+            $roleAllows = $role === 'admin' || $editorAllows || $memberAllows;
             if ($roleAllows) {
                 $grants[] = new Grant($siteId, $principal->id, $action);
             }
