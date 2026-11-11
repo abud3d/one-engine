@@ -14,9 +14,18 @@ function arbnt_data_dir(): string {
  if (!is_dir($path)) throw new RuntimeException('Storage is not initialized');
  return $path;
 }
+function arbnt_lock($handle,int $mode,int $timeoutMs=2000):void{
+ $deadline=hrtime(true)+$timeoutMs*1000000;
+ while(!flock($handle,$mode|LOCK_NB)){
+  if(hrtime(true)>=$deadline)throw new RuntimeException('Storage lock timeout');
+  usleep(1000);
+ }
+}
 function arbnt_storage_guard(int $mode=LOCK_SH){
  $f=(defined('ARBNT_PUBLIC_ROOT')?ARBNT_PUBLIC_ROOT:dirname(__DIR__)).'/.arbnt-migration.lock';
- $h=@fopen($f,'c');if(!$h||!flock($h,$mode))throw new RuntimeException('Storage migration lock unavailable');
+ if(is_link($f)||(file_exists($f)&&!is_file($f)))throw new RuntimeException('Unsafe storage migration lock');
+ $h=@fopen($f,'c+b');if(!$h)throw new RuntimeException('Storage migration lock unavailable');
+ try{@chmod($f,0600);arbnt_lock($h,$mode);}catch(Throwable $e){fclose($h);throw $e;}
  return $h;
 }
 function arbnt_storage_release($h):void{flock($h,LOCK_UN);fclose($h);}
@@ -55,35 +64,46 @@ function arbnt_storage_migrate():array{
 }
 function arbnt_config(): array {
  $f=arbnt_data_dir().'/config.json';
- $v=json_decode((string)file_get_contents($f),true);
- if(!is_array($v))throw new RuntimeException('Invalid configuration');
- return $v;
+ if(!is_file($f))throw new RuntimeException('Invalid configuration');
+ return arbnt_decode_file($f);
+}
+function arbnt_decode_file(string $file):array{
+ if(is_link($file)||(file_exists($file)&&!is_file($file)))throw new RuntimeException('Unsafe storage file');
+ if(!file_exists($file))return [];
+ $json=@file_get_contents($file);
+ if($json===false)throw new RuntimeException('Cannot read storage data');
+ $data=json_decode($json,true,64,JSON_THROW_ON_ERROR);
+ if(!is_array($data))throw new UnexpectedValueException('Invalid storage data');
+ return $data;
 }
 function arbnt_read(string $name): array {
  if(!preg_match('/^[a-z]+$/',$name))throw new InvalidArgumentException('Invalid collection');
  $guard=arbnt_storage_guard();
  try{
   $f=arbnt_data_dir().'/'.$name.'.json';
-  if(!is_file($f))return [];
-  $data=json_decode((string)file_get_contents($f),true);
-  return is_array($data)?$data:[];
+  return arbnt_decode_file($f);
  }finally{arbnt_storage_release($guard);}
 }
 function arbnt_write(string $name, callable $change): array {
  if(!preg_match('/^[a-z]+$/',$name))throw new InvalidArgumentException('Invalid collection');
  $guard=arbnt_storage_guard();
- try{$path=arbnt_data_dir();$lock=fopen($path.'/'.$name.'.lock','c');
- if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('Storage busy');
+ try{$path=arbnt_data_dir();$lockPath=$path.'/'.$name.'.lock';$dataPath=$path.'/'.$name.'.json';
+ if(is_link($lockPath)||(file_exists($lockPath)&&!is_file($lockPath)))throw new RuntimeException('Unsafe storage lock');
+ $lock=@fopen($lockPath,'c+b');if(!$lock)throw new RuntimeException('Storage busy');
  try {
-  $old=arbnt_read($name);$new=$change($old);
+  @chmod($lockPath,0600);arbnt_lock($lock,LOCK_EX);
+  $old=arbnt_decode_file($dataPath);$new=$change($old);
   if(!is_array($new))throw new RuntimeException('Invalid data');
-  $tmp=tempnam($path,'.arbnt-');
-  if($tmp===false)throw new RuntimeException('Storage unavailable');
+  $json=json_encode($new,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR,64);
+  $tmp=$path.'/.arbnt-'.$name.'-'.bin2hex(random_bytes(12)).'.tmp';
+  $stream=@fopen($tmp,'x+b');if(!$stream)throw new RuntimeException('Storage unavailable');
   try {
-   if(file_put_contents($tmp,json_encode($new,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR))===false)throw new RuntimeException('Write failed');
-   chmod($tmp,0600);
-   if(!rename($tmp,$path.'/'.$name.'.json'))throw new RuntimeException('Commit failed');
-  } finally {if(is_file($tmp))unlink($tmp);}
+   if(!@chmod($tmp,0600))throw new RuntimeException('Cannot protect storage data');
+   $offset=0;$length=strlen($json);
+   while($offset<$length){$written=fwrite($stream,substr($json,$offset));if($written===false||$written===0)throw new RuntimeException('Write failed');$offset+=$written;}
+   if(!fflush($stream)||(function_exists('fsync')&&!fsync($stream)))throw new RuntimeException('Write failed');
+   if(!rename($tmp,$dataPath))throw new RuntimeException('Commit failed');
+  } finally {fclose($stream);if(is_file($tmp))unlink($tmp);}
   return $new;
  }finally{flock($lock,LOCK_UN);fclose($lock);}
  }finally{arbnt_storage_release($guard);}

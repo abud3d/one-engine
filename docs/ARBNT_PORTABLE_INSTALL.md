@@ -34,6 +34,7 @@ The storage path resolves via the installation folder itself: `__DIR__/.private-
 ## Known limitations
 
 - This package is the **original ARBNT community** with path/isolation packaging; it does not include ONE Engine's central builder, shared permission engine or full modular CMS.
+- Its packaged JSON adapter is the reviewed ONE Engine legacy adapter: malformed JSON stops reads and writes without replacing the damaged file, while stable bounded locks serialize concurrent updates.
 - Email activation/recovery depends on the hosting site's mail/SMTP setup; not verified on the target server.
 - Site-specific browser testing, Apache/Nginx behavior, HTTPS and upload size cannot be validated without real deployment; the installer itself verifies the most important denial before storing JSON.
 - Existing UI/business logic is reused, not rewritten; the package should be treated as a separate experimental site and not promoted into production until its real server behavior is verified.

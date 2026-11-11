@@ -58,6 +58,7 @@ Once logged in as `testadmin`, create a test post and community using ARBNT's ex
 - User data is outside the webroot in `arbnt-private/`, ignored by Git. No production data imported.
 - Only a narrow allowlist of legacy HTML, CSS, JS and the PHP API is served by the Codespaces router; the original `install.php`, `setup.php`, `recover.php` and private core are **not** published.
 - Legacy API is still the original ARBNT permission model, not yet ONE Engine's `PermissionEngine`. Its full functional/security audit and per-site adaptation are a separate phase.
+- The legacy JSON adapter now rejects malformed documents before any update, uses bounded stable locks, and commits same-filesystem temporary files atomically. A corrupt file is preserved for recovery instead of being treated as an empty collection.
 - Email activation/recovery depends on SMTP/mail configuration and has **not** been end-to-end validated in Codespaces. The test admin is locally provisioned and marked verified.
 - The original ARBNT homepage carries its own brand/canonical and is not linked as ONE Engine's main home. The UX is deliberately isolated to `/community` while we integrate shared layout and core permissions.
 - Do not say all ARBNT features were verified until each workflow is tested. CI currently validates source/asset access, private routing and a synthetic session→admin interaction; browser-level tests remain necessary.
