@@ -39,11 +39,13 @@ final readonly class Application
             return new Response(200, $body, $headers);
         }
         if ($this->pages !== null && $path === '/pages') {
+            $headers['Content-Security-Policy'] = str_replace("style-src 'self';", "style-src 'self'; script-src 'self';", $headers['Content-Security-Policy']);
             return new Response(200, (new PagePreview())->index($this->site, $this->pages->published($this->site->id)), $headers);
         }
         if ($this->pages !== null && preg_match('~\\A/pages/([a-z0-9][a-z0-9_-]{0,63})\\z~D', $path, $matched)) {
             foreach ($this->pages->published($this->site->id) as $page) {
                 if ($page->id === $matched[1]) {
+                    $headers['Content-Security-Policy'] = str_replace("style-src 'self';", "style-src 'self'; script-src 'self';", $headers['Content-Security-Policy']);
                     return new Response(200, (new PagePreview())->page($this->site, $page), $headers);
                 }
             }
@@ -60,6 +62,14 @@ final readonly class Application
         if ($path === '/sitemap.xml') {
             $headers['Content-Type'] = 'application/xml; charset=utf-8';
             return new Response(200, $renderer->sitemap($this->site), $headers);
+        }
+        if ($this->pages !== null && in_array($path, ['/assets/preview-shell.css', '/assets/preview-shell.js'], true)) {
+            $headers['Content-Type'] = str_ends_with($path, '.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8';
+            $body = file_get_contents($this->publicRoot . $path);
+            if ($body === false) {
+                throw new \\RuntimeException('Preview asset unavailable.');
+            }
+            return new Response(200, $body, $headers);
         }
         if ($path === '/assets/app.css') {
             $headers['Content-Type'] = 'text/css; charset=utf-8';
