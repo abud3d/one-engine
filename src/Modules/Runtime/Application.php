@@ -67,7 +67,7 @@ final readonly class Application
             $headers['Content-Type'] = str_ends_with($path, '.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8';
             $body = file_get_contents($this->publicRoot . $path);
             if ($body === false) {
-                throw new \\RuntimeException('Preview asset unavailable.');
+                throw new \RuntimeException('Preview asset unavailable.');
             }
             return new Response(200, $body, $headers);
         }
