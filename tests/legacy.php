@@ -98,7 +98,7 @@ test('imported ARBNT API supports real session, login and admin access in isolat
             [$comment, $commentHeaders] = $request('POST', 'comment', $cookie, $writeCsrf,
                 ['post_id' => $postId, 'text' => 'First verified comment']);
             check(str_contains($commentHeaders, '201 Created') && $comment['item']['post_id'] === $postId,
-                'Could not publish original ARBNT comment');
+                'Could not publish original ARBNT comment: ' . $commentHeaders . ' ' . json_encode($comment));
 
         });
     } finally {
