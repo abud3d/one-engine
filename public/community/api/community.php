@@ -13,10 +13,18 @@ if(is_file($appPointer)){
 }else{define('ARBNT_PUBLIC_ROOT',$publicRoot);require dirname(__DIR__,3).'/src/LegacyArbnt/core.php';}
 ini_set('display_errors','0');
 $directTls=!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off';
+// GitHub Codespaces forwards HTTPS to the local development server over HTTP.
+// Accept the exact Codespace host only when explicitly opted in; never trust an
+// arbitrary X-Forwarded-Proto header or the request's self-declared hostname alone.
+// This exception is for the Codespaces *preview* only, not a production reverse proxy.
+$codespace=(string)(getenv('CODESPACE_NAME')?:'');
+$host=strtolower((string)($_SERVER['HTTP_HOST']??''));
+$forwardedProto=strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO']??'')));
 $proxyTls=getenv('ONE_CODESPACES_PREVIEW')==='1'
-    && ($_SERVER['HTTP_X_FORWARDED_PROTO']??'')==='https'
-    && preg_match('/\\A[a-z0-9-]+-8080\\.app\\.github\\.dev\\z/i',(string)($_SERVER['HTTP_HOST']??''))
-    && in_array((string)($_SERVER['REMOTE_ADDR']??''),['127.0.0.1','::1'],true);
+    && $codespace!==''
+    && preg_match('/\\A[a-z0-9-]+\\z/D',$codespace)===1
+    && hash_equals(strtolower($codespace.'-8080.app.github.dev'),$host)
+    && ($forwardedProto==='' || $forwardedProto==='https');
 if(!$directTls&&!$proxyTls)arbnt_json(403,['error'=>'HTTPS required']);
 if($proxyTls)$_SERVER['HTTPS']='on';
 header("Content-Security-Policy: default-src 'none'; frame-ancestors 'none'");
