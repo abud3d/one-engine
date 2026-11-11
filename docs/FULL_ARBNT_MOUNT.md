@@ -29,10 +29,11 @@ unset ONE_ARBNT_ADMIN_PASSWORD
 
 The installer refuses to overwrite `arbnt-private/` if already populated. It uses strong password hashing and a separate site-specific private dataset. Do not delete any existing data directory casually.
 
-Start/restart PHP server (Ctrl+C to stop previous server). The `ONE_CODESPACES_PREVIEW=1` flag **only** enables the legacy API's explicit HTTPS-forwarded proxy check on a loopback Codespaces proxy host matching `*-8080.app.github.dev`. Do not set this flag on a production server:
+Start/restart PHP server (Ctrl+C to stop previous server). The `ONE_CODESPACES_PREVIEW=1` flag **only** enables the legacy API for the exact `${CODESPACE_NAME}-8080.app.github.dev` GitHub Codespaces forwarded hostname. GitHub terminates HTTPS and the forwarded request may not contain `X-Forwarded-Proto`; the app checks the exact Codespace identity instead of trusting arbitrary proxy headers. Do not set this flag on a production server:
 
 ```bash
 export ONE_CODESPACES_PREVIEW=1
+printf 'Codespace: %s\\n' "$CODESPACE_NAME"
 php -c config/php.ini -S 0.0.0.0:8080 -t public public/router.php
 ```
 
@@ -71,3 +72,7 @@ php -l src/LegacyArbnt/core.php
 ```
 
 See `docs/V02_HANDOFF.md`, `docs/ARBNT_AUTH_REVIEW.md` and issue #4 for the remaining native integration and risk controls.
+
+## Fix for `HTTPS required` on Codespaces
+
+After updating `main`, stop the previous PHP server with Ctrl+C and restart it in **the same terminal** with `export ONE_CODESPACES_PREVIEW=1`. `CODESPACE_NAME` is provided by the GitHub Codespaces environment; do not make up a different name. Verify it is nonempty using `echo "$CODESPACE_NAME"`. Make sure the forwarded port's visibility is **Private**, not Public. If the environment variable is missing or the active hostname differs from `${CODESPACE_NAME}-8080.app.github.dev`, the server intentionally returns `HTTPS required` rather than trusting spoofed proxy headers. Do not modify this logic on a production server. The API's session cookie remains Secure, HttpOnly, and restricted to `/community`.
