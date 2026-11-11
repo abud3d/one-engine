@@ -59,8 +59,14 @@ test('imported ARBNT API supports real session, login and admin access in isolat
                 return implode("\n", $http_response_header);
             };
             check(str_contains($probe('attacker-8080.app.github.dev', 'https'), '403 Forbidden'), 'Foreign host accepted');
-            check(str_contains($probe('demo-8080.app.github.dev', 'http'), '403 Forbidden'), 'Insecure forwarding accepted');
+            check(str_contains($probe('demo-8080.app.github.dev', 'http'), '200 OK'), 'Pinned Codespaces host rejected because proxy sent HTTP header');
             check(str_contains($probe('demo-8080.app.github.dev', ''), '200 OK'), 'Codespaces gateway with no XFP rejected');
+            $previousPinned = getenv('ONE_CODESPACES_HOST');
+            putenv('ONE_CODESPACES_HOST=demo-8080.app.github.dev');
+            check(str_contains($probe('demo-8080.app.github.dev', ''), '200 OK'), 'Explicit pinned Codespaces hostname rejected');
+            check(str_contains($probe('other-8080.app.github.dev', ''), '403 Forbidden'), 'Other Codespaces hostname accepted');
+            if ($previousPinned === false) putenv('ONE_CODESPACES_HOST');
+            else putenv('ONE_CODESPACES_HOST=' . $previousPinned);
             [$session, $headers] = $request('GET', 'session');
             check(str_contains($headers, '200 OK'), 'Could not initialize legacy session');
             check($session['user'] === null && is_string($session['csrf']) && strlen($session['csrf']) > 30);
