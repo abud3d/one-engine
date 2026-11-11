@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-# Build a standalone ARBNT community for https://arbnt.com/new2/.
-# No current server, production data, legacy /new folder, or VPS is touched.
+# Standalone ARBNT PHP + JSON, portable to ANY folder under a domain.
+# The package never reads, changes, or writes a neighboring installation.
 source_dir="${1:?Usage: scripts/package-arbnt-new2.sh /path/to/arbnt-source}"
 output_dir="${2:-dist}"
-root="$output_dir/new2"
-if [[ ! -f "$source_dir/install.php" || ! -f "$source_dir/app/core.php" || ! -f "$source_dir/api/community.php" ]]; then
-  echo "Missing original ARBNT source. Build aborted." >&2
-  exit 1
-fi
-
-rm -rf "$root"
-mkdir -p "$root/assets" "$root/api" "$root/app"
-for f in index.html community.html communities.html admin.html login.html register.html forgot.html profile.html favorites.html post.html publish.html; do
+root="$output_dir/portable-site"
+for f in install.php app/core.php api/community.php; do
   test -f "$source_dir/$f" || { echo "Missing $f" >&2; exit 1; }
+done
+rm -rf "$root"
+mkdir -p "$root/assets" "$root/api" "$root/app" "$root/.private-data" "$root/.private-app"
+for f in index.html community.html communities.html admin.html login.html register.html forgot.html profile.html favorites.html post.html publish.html; do
+  test -f "$source_dir/$f" || exit 1
   cp "$source_dir/$f" "$root/$f"
 done
 cp "$source_dir"/assets/*.css "$root/assets/"
@@ -24,93 +21,130 @@ cp "$source_dir/app/core.php" "$root/app/core.php"
 cp "$source_dir/install.php" "$root/install.php"
 cp "$source_dir/setup.php" "$root/setup.php"
 
-# All changes below happen to the packaged COPY only.
 python3 - "$root" <<'PY'
 from pathlib import Path
 import sys, re
+root=Path(sys.argv[1])
 
-root = Path(sys.argv[1])
-private = 'arbnt-new2-private'
-app = 'arbnt-new2-app'
+# Replace ONLY the legacy cross-installation paths with a path derived from the
+# current package directory. Never use DOCUMENT_ROOT for private storage.
+p=root/'install.php'
+s=p.read_text(encoding='utf-8')
+assert "$private=dirname($base).'/arbnt-private';" in s
+assert "$appOutside=dirname($base).'/arbnt-app';" in s
+s=s.replace("$private=dirname($base).'/arbnt-private';","$private=__DIR__.'/.private-data';")
+s=s.replace("$appOutside=dirname($base).'/arbnt-app';","$appOutside=__DIR__.'/.private-app';")
+s=s.replace("is_file(dirname($base).'/arbnt-private/installed.lock')","is_file(__DIR__.'/.private-data/installed.lock')")
+# Do not accept the previous fallback storage or old absolute pointers.
+s=s.replace("$local=__DIR__.'/storage';","$local=__DIR__.'/.private-data';")
+s=s.replace("if($existing)$errors[]=", "if(array_diff($existing,['.htaccess']))$errors[]=")
+# The protected directory ships with an .htaccess. An actual 403 response is
+# mandatory: if Apache rules are ignored (e.g., nginx alone), FAIL CLOSED.
+probe=r'''
+ if(!$errors){
+   $probe='probe-'.bin2hex(random_bytes(12)).'.txt';
+   $probePath=$private.'/'.$probe;
+   if(!is_dir($private) || is_link($private))$errors[]='مجلد البيانات غير آمن.';
+   elseif(file_put_contents($probePath,bin2hex(random_bytes(12)),LOCK_EX)===false)$errors[]='لا يمكن فحص حماية البيانات.';
+   else {
+     try {
+       $host=(string)($_SERVER['HTTP_HOST']??'');
+       $requestPath=rtrim(str_replace('\\','/',dirname((string)($_SERVER['SCRIPT_NAME']??'/'))),'/');
+       $url='https://'.$host.$requestPath.'/.private-data/'.$probe;
+       $status=0;
+       if(!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off'
+         && preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/i',$host)){
+         if(function_exists('curl_init')){
+           $ch=curl_init($url);
+           curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>8,CURLOPT_FOLLOWLOCATION=>false]);
+           curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+         }elseif(ini_get('allow_url_fopen')){
+           $ctx=stream_context_create(['http'=>['ignore_errors'=>true,'timeout'=>8,'follow_location'=>0]]);
+           @file_get_contents($url,false,$ctx);
+           foreach(($http_response_header??[]) as $header)
+             if(preg_match('/^HTTP\/\S+ (\d{3})/',$header,$m)){$status=(int)$m[1];break;}
+         }
+       }
+       if($status!==403)$errors[]='توقف التثبيت: تعذر إثبات الحماية (يلزم HTTP 403 لمجلد JSON).';
+     }finally{@unlink($probePath);}
+   }
+ }
+'''
+needle=" if(!$errors){\n  if(!is_file(__DIR__.'/app/core.php'))"
+assert needle in s
+s=s.replace(needle,probe+needle,1)
+# All archives are self-contained: no fallback outside /current-folder.
+assert "dirname($base).'/arbnt-private'" not in s
+assert "dirname($base).'/arbnt-app'" not in s
+s=s.replace("يحفظ المثبت محرك PHP خارج المجلد العام، ويفضل تخزين البيانات خارج الموقع.", "يضع المثبت التخزين والمحرك داخل مجلدات مخفية محمية في مجلد هذه النسخة، بعد التأكد من منع وصول الويب إليها.")
+s=s.replace("موقع التخزين:","موقع التخزين لهذه النسخة فقط:")
+p.write_text(s,encoding='utf-8')
 
-# The stock ARBNT installer/store uses shared names arbnt-private and
-# arbnt-app relative to the hosting account; these MUST be unique to /new2
-# or they could read/write an existing application's JSON/account files.
-for rel in ('install.php', 'app/core.php'):
-    path = root / rel
-    data = path.read_text(encoding='utf-8')
-    assert 'arbnt-private' in data, rel
-    data = data.replace('arbnt-private', private)
-    data = data.replace("'/arbnt-app'", "'/arbnt-new2-app'")
-    path.write_text(data, encoding='utf-8')
+p=root/'app/core.php'
+s=p.read_text(encoding='utf-8')
+assert "dirname($base).'/arbnt-private'" in s
+s=s.replace("dirname($base).'/arbnt-private'", "$root.'/.private-data'")
+s=s.replace("$root.'/storage'", "$root.'/.private-data'")
+p.write_text(s,encoding='utf-8')
 
-# The existing ARBNT URL handling is relative to the installation folder.
-# Public search indexing is disabled for this experimental second installation.
-for html in root.glob('*.html'):
-    content = html.read_text(encoding='utf-8')
-    content = re.sub(r'<meta\s+name="robots"[^>]*>', '', content, flags=re.I)
-    content = content.replace('<head>', '<head><meta name="robots" content="noindex,nofollow">', 1)
-    if html.name == 'index.html':
-        content = content.replace('https://arbnt.com/', 'https://arbnt.com/new2/')
-    html.write_text(content, encoding='utf-8')
+# All app links are relative to this install folder; remove production canonical
+# and other hardcoded production domain metadata from the test copy.
+for path in root.glob('*.html'):
+    data=path.read_text(encoding='utf-8')
+    data=re.sub(r'<meta\s+name="robots"[^>]*>', '', data, flags=re.I)
+    data=re.sub(r'<link\s+rel="canonical"[^>]*>', '', data, flags=re.I)
+    data=data.replace('<head>','<head><meta name="robots" content="noindex,nofollow">',1)
+    data=data.replace('https://arbnt.com/', './')
+    path.write_text(data,encoding='utf-8')
 
-# Prevent accidentally linking to the live ARBNT domain from test email URLs.
-api = root / 'api/community.php'
-data = api.read_text(encoding='utf-8')
-# No rewriting of third-party destinations or permissions; the new2 scope is
-# determined by the current request's host+script path and local private store.
-api.write_text(data, encoding='utf-8')
-
-# Add a version marker for deployment inspection; it contains no secrets.
-(root / 'BUILD-NEW2.txt').write_text(
-    'ARBNT JSON community /new2/\n'
-    'Source: abud3d/arbnt (pinned by GitHub Actions)\n'
-    'Isolated private directory: arbnt-new2-private\n'
-    'Isolated PHP engine directory: arbnt-new2-app\n'
-    'Install URL: https://arbnt.com/new2/setup.php\n'
-    'Remove setup.php and install.php after successful installation.\n',
-    encoding='utf-8'
-)
+# Installer path is always based on __DIR__, not on new2/new2000 or hostname.
+(root/'BUILD.txt').write_text(
+    'Portable ARBNT community (Native PHP + JSON)\n'
+    'Install from https://YOUR-DOMAIN/ANY-SUBFOLDER/setup.php\n'
+    'Protected private data: .private-data/*.json\n'
+    'Protected private PHP engine: .private-app/core.php\n'
+    'Both paths are relative to THIS directory only.\n'
+    'Delete setup.php and install.php after installation.\n',
+    encoding='utf-8')
 PY
 
-# Apache/CWP shared hosting: block private, source, hidden files, directory
-# indexes and the status marker; no global htaccess is modified.
+# Apache with AllowOverride enabled. The installer tests an actual HTTP 403 and
+# refuses to create users if the hosting stack ignores .htaccess.
 cat > "$root/.htaccess" <<'HT'
 Options -Indexes
 <IfModule mod_rewrite.c>
 RewriteEngine On
-RewriteRule ^(?:app|storage)(?:/|$) - [F,L,NC]
-RewriteRule (^|/)\. - [F,L]
-RewriteRule ^BUILD-NEW2\.txt$ - [F,L,NC]
+RewriteRule ^(?:\\.private-data|\\.private-app|app|storage)(?:/|$) - [F,L,NC]
+RewriteRule (^|/)\\. - [F,L]
+RewriteRule ^BUILD\\.txt$ - [F,L,NC]
 </IfModule>
-<FilesMatch "^(?:core\.php|\.arbnt-.*|BUILD-NEW2\.txt)$">
-  Require all denied
+<FilesMatch "^(?:\\.arbnt-.*|BUILD\\.txt)$">
+Require all denied
 </FilesMatch>
 <IfModule mod_headers.c>
 Header always set X-Robots-Tag "noindex, nofollow"
 Header always set X-Content-Type-Options "nosniff"
 </IfModule>
 HT
-cat > "$root/app/.htaccess" <<'HT'
+for d in .private-data .private-app app; do
+cat > "$root/$d/.htaccess" <<'HT'
+<IfModule mod_authz_core.c>
 Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+Deny from all
+</IfModule>
 HT
-
-# Validate the sandbox structure and that no original shared names remain in
-# the core and installer. The newer app points to its own outside-webroot
-# storage while keeping original API, UI, comments, admin and login logic.
-! grep -q 'arbnt-private' "$root/install.php"
-! grep -q 'arbnt-private' "$root/app/core.php"
-! grep -q "'/arbnt-app'" "$root/install.php"
-test -f "$root/.htaccess"
-test -f "$root/api/community.php"
-test -f "$root/admin.html"
-
+done
+test -f "$root/.private-data/.htaccess"
+test -f "$root/.private-app/.htaccess"
+test -f "$root/app/.htaccess"
+! grep -q "dirname(\$base).'/arbnt-private'" "$root/install.php"
+! grep -q "dirname(\$base).'/arbnt-private'" "$root/app/core.php"
 for f in "$root"/api/*.php "$root"/app/*.php "$root"/install.php "$root"/setup.php; do php -l "$f" >/dev/null; done
 
-# Small standalone zip: contents are uploaded INTO /new2, not a new2 folder
-# nested inside /new2.
 mkdir -p "$output_dir"
-(cd "$root" && zip -q -r -X "../arbnt-new2-json.zip" .)
-(cd "$output_dir" && sha256sum arbnt-new2-json.zip > arbnt-new2-json.zip.sha256)
-echo "CREATED: $output_dir/arbnt-new2-json.zip"
-du -h "$output_dir/arbnt-new2-json.zip"
+(cd "$root" && zip -q -r -X "../arbnt-portable-json.zip" .)
+(cd "$output_dir" && sha256sum arbnt-portable-json.zip > arbnt-portable-json.zip.sha256)
+echo "CREATED: $output_dir/arbnt-portable-json.zip"
+du -h "$output_dir/arbnt-portable-json.zip"
