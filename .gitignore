@@ -1,0 +1,11 @@
+/var/*
+!/var/.gitkeep
+/build/
+/.env
+/.env.*
+!/.env.example
+/config/local.php
+/vendor/
+*.sqlite
+*.sqlite-*
+*.log

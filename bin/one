@@ -1,0 +1,29 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+use OneEngine\Modules\Builder\ReleaseBuilder;
+use OneEngine\Modules\CentralManagement\SiteCatalog;
+use OneEngine\Modules\Runtime\Site;
+
+try {
+    $config = require dirname(__DIR__) . '/config/site.php';
+    if (($argv[1] ?? '') === 'sites' && count($argv) === 2) {
+        $catalog = new SiteCatalog();
+        $catalog->register(Site::fromArray($config));
+        echo json_encode($catalog->all(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+    } elseif (($argv[1] ?? '') === 'build' && count($argv) === 4) {
+        $config['mode'] = $argv[2];
+        $site = Site::fromArray($config);
+        (new ReleaseBuilder(dirname(__DIR__)))->build($site, $argv[3]);
+        echo 'Built ' . $site->mode->value . " release. Nothing was deployed.\n";
+    } else {
+        fwrite(STDERR, "Usage:\n  php bin/one sites\n  php bin/one build static|hybrid|dynamic NEW_DIRECTORY\n");
+        exit(2);
+    }
+} catch (Throwable $error) {
+    fwrite(STDERR, 'Build/command failed: ' . $error->getMessage() . "\n");
+    exit(1);
+}
