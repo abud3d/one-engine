@@ -18,8 +18,8 @@ header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Robots-Tag: noindex, nofollow');
 try {
-    $private = getenv('ONE_PRIVATE_DIR');
-    if (!is_string($private) || $private === '') {
+    $private = \OneEngine\Modules\Runtime\LocalConfiguration::privateDirectory(dirname(__DIR__));
+    if ($private === null) {
         throw new RuntimeException('ONE_PRIVATE_DIR is required for administration.');
     }
     SessionGuard::start($https);

@@ -1,0 +1,20 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+use OneEngine\Modules\Builder\CmsPackageBuilder;
+
+try {
+    if (count($argv) !== 3) {
+        throw new InvalidArgumentException('Usage: php bin/one-cms-package NEW_DIRECTORY NEW.zip');
+    }
+    $builder = new CmsPackageBuilder(dirname(__DIR__));
+    $builder->build($argv[1]);
+    $builder->zip($argv[1], $argv[2]);
+    echo "Built interactive ONE Engine CMS ZIP without credentials or private data.\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, 'CMS package failed: ' . $error->getMessage() . "\n");
+    exit(1);
+}

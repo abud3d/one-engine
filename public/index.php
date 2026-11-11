@@ -14,8 +14,8 @@ try {
     $community = null;
     $cms = null;
     $actor = null;
-    $private = getenv('ONE_PRIVATE_DIR');
-    if ($private !== false && $private !== '') {
+    $private = \OneEngine\Modules\Runtime\LocalConfiguration::privateDirectory(dirname(__DIR__));
+    if ($private !== null) {
         $store = new \OneEngine\Storage\JsonStore($private, __DIR__);
         $pages = new \OneEngine\Modules\Runtime\PageCatalog($store);
         $community = new \OneEngine\Modules\Runtime\CommunityCatalog($store);

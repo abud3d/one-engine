@@ -41,6 +41,8 @@ jobs:
           php -l bin/one-pages
           php -l bin/one-admin
           php -l bin/one-demo-package
+          php -l bin/one-install
+          php -l bin/one-cms-package
       - name: Behavioral, concurrency and HTTP tests
         run: php tests/run.php
       - name: Check module boundaries and release hygiene
@@ -51,11 +53,21 @@ jobs:
           php bin/one build static build/static
           php bin/one build hybrid build/hybrid
           php bin/one build dynamic build/dynamic
-      - name: Build installable CMS demo ZIP
+      - name: Build separate static site ZIP
         run: php bin/one-demo-package build/cms-demo build/one-engine-cms-demo.zip
-      - name: Upload CMS demo ZIP
+      - name: Build and accept interactive CMS ZIP
+        run: |
+          php bin/one-cms-package build/cms-runtime build/one-engine-cms-runtime.zip
+          php tests/cms_package_acceptance.php build/one-engine-cms-runtime.zip build/cms-acceptance
+      - name: Upload static site ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: one-engine-cms-demo-php-${{ matrix.php }}
+          name: one-engine-static-site-php-${{ matrix.php }}
           path: build/one-engine-cms-demo.zip
+          if-no-files-found: error
+      - name: Upload interactive CMS ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-engine-cms-runtime-php-${{ matrix.php }}
+          path: build/one-engine-cms-runtime.zip
           if-no-files-found: error
