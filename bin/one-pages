@@ -1,0 +1,31 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+use OneEngine\Modules\Runtime\{PageCatalog, Site};
+use OneEngine\Storage\JsonStore;
+
+// Offline editor only; no HTTP endpoint can write content.
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+$directory = getenv('ONE_PRIVATE_DIR');
+if ($directory === false || $directory === '') {
+    fwrite(STDERR, "Set ONE_PRIVATE_DIR to an existing private 0700 directory outside public/.\n");
+    exit(2);
+}
+if ($argc !== 5 || !in_array($argv[1], ['draft', 'publish'], true)) {
+    fwrite(STDERR, "Usage: php bin/one-pages draft|publish slug 'Title' 'Body'\n");
+    exit(2);
+}
+try {
+    $site = Site::fromArray(require dirname(__DIR__) . '/config/site.php');
+    $pages = new PageCatalog(new JsonStore($directory, dirname(__DIR__) . '/public'));
+    $pages->save($site->id, $argv[2], $argv[3], $argv[4], $argv[1] === 'publish');
+    echo "Saved {$argv[2]} as {$argv[1]} for site {$site->id}\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, "Cannot save page: " . $error->getMessage() . "\n");
+    exit(1);
+}
