@@ -5,10 +5,11 @@ namespace OneEngine\Modules\Runtime;
 
 use OneEngine\Core\ContentObject;
 use OneEngine\Security\Headers;
+use OneEngine\Modules\Content\SiteContent;
 
 final readonly class Application
 {
-    public function __construct(private Site $site, private string $publicRoot, private ?PageCatalog $pages = null, private ?CommunityCatalog $community = null)
+    public function __construct(private Site $site, private string $publicRoot, private ?PageCatalog $pages = null, private ?CommunityCatalog $community = null, private ?SiteContent $cms = null, private ?array $actor = null)
     {
     }
 
@@ -45,6 +46,12 @@ final readonly class Application
                     '<div class="actions"><a class="button" href="/pages">الصفحات</a><a class="button" href="' . $communityLink . '">المجتمع الكامل</a><a class="button" href="/community/login.html">دخول الأعضاء</a><a class="button" href="/community/admin.html">لوحة الإدارة</a></div></main>', $body);
             }
             return new Response(200, $body, $headers);
+        }
+        if ($this->cms !== null && preg_match('~\A/p/([a-z0-9][a-z0-9_-]{0,63})\z~D', $path, $matched)) {
+            $page = $this->cms->findPage($this->site->id, $matched[1], $this->actor);
+            return $page === null
+                ? new Response(404, 'Not found', $headers)
+                : new Response(200, (new CmsRenderer())->page($this->site, $page, $this->cms->list($this->site->id, 'menus'), $this->actor), $headers);
         }
         if ($preview && $path === '/pages') {
             $headers['Content-Security-Policy'] = str_replace("style-src 'self';", "style-src 'self'; script-src 'self';", $headers['Content-Security-Policy']);
@@ -83,6 +90,17 @@ final readonly class Application
         }
         if ($path === '/sitemap.xml') {
             $headers['Content-Type'] = 'application/xml; charset=utf-8';
+            if ($this->cms !== null && $this->site->indexable) {
+                $urls = [$this->site->canonical()];
+                foreach ($this->cms->list($this->site->id, 'cms_pages', null, true) as $page) {
+                    $urls[] = rtrim($this->site->baseUrl, '/') . '/p/' . $page['id'];
+                }
+                $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+                foreach ($urls as $url) {
+                    $xml .= '<url><loc>' . Renderer::escape($url) . '</loc></url>';
+                }
+                return new Response(200, $xml . '</urlset>', $headers);
+            }
             return new Response(200, $renderer->sitemap($this->site), $headers);
         }
         if ($preview && in_array($path, ['/assets/preview-shell.css', '/assets/preview-shell.js'], true)) {

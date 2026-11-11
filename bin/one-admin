@@ -1,0 +1,22 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+use OneEngine\Modules\Identity\IdentityService;
+use OneEngine\Modules\Runtime\Site;
+use OneEngine\Storage\JsonStore;
+
+try {
+    if (count($argv) !== 4) {
+        throw new InvalidArgumentException('Usage: php bin/one-admin PRIVATE_DIR USERNAME PASSWORD');
+    }
+    $site = Site::fromArray(require dirname(__DIR__) . '/config/site.php');
+    $store = new JsonStore($argv[1], dirname(__DIR__) . '/public');
+    (new IdentityService($store))->create($site->id, 'admin-' . bin2hex(random_bytes(6)), $argv[2], $argv[3], 'admin');
+    echo "Administrator created for {$site->id}.\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, $error->getMessage() . "\n");
+    exit(1);
+}

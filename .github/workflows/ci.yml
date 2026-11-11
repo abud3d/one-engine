@@ -39,6 +39,7 @@ jobs:
           php -l bin/one-arbnt-password
           php -l bin/one-posts
           php -l bin/one-pages
+          php -l bin/one-admin
       - name: Behavioral, concurrency and HTTP tests
         run: php tests/run.php
       - name: Check module boundaries and release hygiene
