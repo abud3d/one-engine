@@ -95,6 +95,8 @@ test('imported ARBNT API supports real session, login and admin access in isolat
             [$discussion, $feedHeaders] = $request('GET', 'posts', $cookie);
             check(str_contains($feedHeaders, '200 OK') && $discussion['total'] === 1);
             check($discussion['items'][0]['id'] === $postId, 'New topic not visible in original ARBNT feed');
+            // Preserve ARBNT's real 2-second per-account write throttle.
+            sleep(2);
             [$comment, $commentHeaders] = $request('POST', 'comment', $cookie, $writeCsrf,
                 ['post_id' => $postId, 'text' => 'First verified comment']);
             check(str_contains($commentHeaders, '201 Created') && $comment['item']['post_id'] === $postId,
