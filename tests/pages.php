@@ -34,8 +34,9 @@ test('page catalog publishes only explicitly public pages, keeps drafts private 
     check(str_contains($html->body, '&lt;script&gt;'));
     check($app->handle('POST', '/pages')->status === 405);
     check($app->handle('GET', '/pages/../config')->status === 404);
-    check((new Application(demoSite(), dirname(__DIR__) . '/public'))->handle('GET', '/assets/preview-shell.js')->status === 404);
-    check(str_contains($app->handle('GET', '/')->body, 'تصفح الصفحات المنشورة'));
+    check((new Application(demoSite(), dirname(__DIR__) . '/public'))->handle('GET', '/assets/preview-shell.js')->status === 200);
+    check(str_contains($app->handle('GET', '/')->body, 'href="/pages"'));
+    check(str_contains($app->handle('GET', '/')->body, 'href="/community"'));
 });
 
 test('page publishing validates slugs and stays isolated per site', function () use ($temp): void {
