@@ -14,7 +14,7 @@ final class PagePreview
         foreach ($pages as $page) {
             $items .= '<article><h2><a href="/pages/' . Renderer::escape($page->id) . '">'
                 . Renderer::escape($page->title) . '</a></h2><p>'
-                . Renderer::escape(mb_strimwidth($page->body, 0, 150, '…', 'UTF-8')) . '</p></article>';
+                . Renderer::escape($page->body) . '</p></article>';
         }
         if ($items === '') {
             $items = '<article><h2>لا توجد صفحات منشورة</h2><p>أنشئ صفحة باستخدام أداة سطر الأوامر.</p></article>';
