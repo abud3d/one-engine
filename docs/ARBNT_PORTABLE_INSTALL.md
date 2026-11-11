@@ -5,7 +5,7 @@ Source: `abud3d/arbnt` pinned commit `1b5c44b21bc328fef7bc4645ce3140dba0ed13d1`.
 ## Install without any shell or database
 
 1. Download the CI artifact named **arbnt-portable-json-install**; extract `arbnt-portable-json.zip`.
-2. Upload the **contents** (including hidden `.htaccess` files and hidden `.private-*` directories) into a **new empty folder of your choice**: `/new2/`, `/new2000/`, or `/anything/`. Never overwrite or merge with a previous ARBNT installation. The package does not need a configured path.
+2. Upload the **contents** (including hidden `.htaccess` files and `.private-app/`) into a **new empty folder of your choice**: `/new2/`, `/new2000/`, or `/anything/`. Never overwrite or merge with a previous ARBNT installation. The package does not need a configured path.
 3. Open `https://YOURDOMAIN/YOURFOLDER/setup.php`. Choose a new site name, administrator username and a new strong password (12+ characters). No hard-coded shared credentials.
 4. The installer automatically proves that `.private-data/` is inaccessible over HTTPS: a generated random probe must return **HTTP 403**, else installation refuses to write accounts. If it refuses, do **not** remove protections or use this package on a stack that ignores `.htaccess`.
 5. After success: open `https://YOURDOMAIN/YOURFOLDER/login.html` and `.../admin.html`. **Delete `install.php` and `setup.php`** from the installed folder once configured, with ordinary file manager. Do not delete either hidden private directory or `.arbnt-*.php` pointer files.
@@ -39,3 +39,9 @@ The storage path resolves via the installation folder itself: `__DIR__/.private-
 - Existing UI/business logic is reused, not rewritten; the package should be treated as a separate experimental site and not promoted into production until its real server behavior is verified.
 
 The build follows the accessible `abud3d/talal-prompts` playbooks: secure-by-default, reuse before rewrite, genuine tests, a PR and verified CI evidence. No public `abud3d/talal` repository was available to inspect; the available coding reference was `abud3d/talal-prompts`.
+
+## إصلاح رسالة «لا يمكن فحص حماية البيانات»
+
+الإصدارات السابقة كانت تتضمن مجلد `.private-data/` داخل ZIP؛ أحياناً يرفع مدير الملفات المجلد بملكية أو صلاحيات لا تسمح لـPHP بكتابة ملف الاختبار. **هذه النسخة لا تشحن المجلد مسبقاً**، بل ينشئه المثبت بنفس مستخدم PHP وبصلاحية 0700، ويضيف ملف الحماية ثم يتحقق عبر طلب HTTPS أن الوصول المباشر يعطي **403**. إذا كان لديك مجلد قديم غير قابل للكتابة ولا يحوي سوى `.htaccess`، يحاول المثبت الاحتفاظ به باسم مخفي احتياطي ثم ينشئ مجلداً جديداً، دون مسح حسابات أو منشورات. إذا تعذر ذلك، تظهر رسالة صريحة بدلاً من إكمال تثبيت غير آمن.
+
+ارفع ملفات ZIP الجديدة **فوق ملفات الكود الخاصة بنسختك التجريبية فقط**؛ لا تحذف `.private-data/` الموجود إذا به بيانات أو ملفات أخرى. يمكنك أيضاً استبدال `install.php` وحده إذا كنت لم تبدأ تثبيتاً ناجحاً. لا تتجاوز فحص 403.
