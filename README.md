@@ -47,6 +47,11 @@ php -S 127.0.0.1:8082 -t build/demo-hybrid/public build/demo-hybrid/public/route
 php -S 127.0.0.1:8083 -t build/demo-dynamic/public build/demo-dynamic/public/router.php
 ```
 
+## استئناف التطوير المعتمد
+
+- [ONE-V02-004 — خطة نقل ARBNT وتسليم الوكلاء](docs/V02_HANDOFF.md)
+- [TDP — مكتبة برومبت طلال](https://github.com/abud3d/talal-prompts)
+
 ## الوثائق
 
 - [المعمارية وحدود الإصدار](docs/ARCHITECTURE.md)
