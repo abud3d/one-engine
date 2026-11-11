@@ -41,7 +41,8 @@ jobs:
           grep -Fxq "install.php" /tmp/arbnt-package-files
           grep -Fxq "api/community.php" /tmp/arbnt-package-files
           grep -Fxq ".htaccess" /tmp/arbnt-package-files
-          grep -Fxq ".private-data/.htaccess" /tmp/arbnt-package-files
+          if grep -Fxq ".private-data/.htaccess" /tmp/arbnt-package-files; then exit 1; fi
+          if grep -Fxq ".private-data/" /tmp/arbnt-package-files; then exit 1; fi
           grep -Fxq ".private-app/.htaccess" /tmp/arbnt-package-files
           grep -Fxq "app/.htaccess" /tmp/arbnt-package-files
           if grep -Eq '(^storage/|\\.env$|users\\.json$)' /tmp/arbnt-package-files; then exit 1; fi
@@ -51,7 +52,9 @@ jobs:
           grep -Fq "status!==403" dist/portable-site/install.php
           grep -Fq "session_name(" dist/portable-site/install.php
           grep -Fq "session_name(" dist/portable-site/api/community.php
-          grep -Fq "Require all denied" dist/portable-site/.private-data/.htaccess
+          grep -Fq "Require all denied" dist/portable-site/.private-app/.htaccess
+          grep -Fq "mkdir(\$private,0700)" dist/portable-site/install.php
+          grep -Fq 'fopen($probePath,' dist/portable-site/install.php
           if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/install.php; then exit 1; fi
           if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/app/core.php; then exit 1; fi
           echo "PORTABLE PACKAGE CHECKS PASSED"
