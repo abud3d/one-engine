@@ -14,6 +14,12 @@ if ($path === '/assets/admin.css') {
     readfile(__DIR__ . '/assets/admin.css');
     return;
 }
+if ($path === '/assets/admin.js') {
+    header('Content-Type: text/javascript; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    readfile(__DIR__ . '/assets/admin.js');
+    return;
+}
 // Mounted ARBNT application: explicit file allowlist, not a directory passthrough.
 // The legacy API is unchanged in functionality; its PHP core lives outside public/.
 if (is_file(dirname(__DIR__) . '/src/LegacyArbnt/core.php') && ($path === '/community' || $path === '/community/')) {

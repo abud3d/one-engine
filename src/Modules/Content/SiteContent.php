@@ -46,9 +46,39 @@ final readonly class SiteContent
     }
 
     /** @param array{id:string,role:string} $actor */
+    public function saveTemplate(string $siteId, array $actor, array $input): void
+    {
+        if (!Access::allows($actor, Action::Update, null, $siteId)) {
+            throw new \DomainException('Forbidden.');
+        }
+        $id = self::slug((string) ($input['id'] ?? ''));
+        $title = self::text((string) ($input['title'] ?? ''), 120, false);
+        $description = self::text((string) ($input['description'] ?? ''), 500, true);
+        $layout = self::layout((string) ($input['layout'] ?? 'one'));
+        $sidebar = ($input['sidebar'] ?? '') === '1';
+        $this->replace($siteId, 'templates', $id, compact('id', 'title', 'description', 'layout', 'sidebar'));
+    }
+
+    /** @param array{id:string,role:string} $actor */
+    public function saveMedia(string $siteId, array $actor, array $input): void
+    {
+        if (!Access::allows($actor, Action::Update, null, $siteId)) {
+            throw new \DomainException('Forbidden.');
+        }
+        $id = self::slug((string) ($input['id'] ?? ''));
+        $title = self::text((string) ($input['title'] ?? ''), 120, false);
+        $alt = self::text((string) ($input['alt'] ?? ''), 300, true);
+        $url = (string) ($input['url'] ?? '');
+        if (!preg_match('~\Ahttps://[^\s<>"\']{1,2000}\z~D', $url) || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            throw new \InvalidArgumentException('Media URL must use HTTPS.');
+        }
+        $this->replace($siteId, 'media', $id, compact('id', 'title', 'alt', 'url'));
+    }
+
+    /** @param array{id:string,role:string} $actor */
     public function delete(string $siteId, array $actor, string $kind, string $id): void
     {
-        if (!Access::allows($actor, Action::Delete, null, $siteId) || !in_array($kind, ['sections', 'cms_pages', 'menus'], true)) {
+        if (!Access::allows($actor, Action::Delete, null, $siteId) || !in_array($kind, ['sections', 'cms_pages', 'menus', 'templates', 'media'], true)) {
             throw new \DomainException('Forbidden.');
         }
         $id = self::slug($id);
@@ -56,6 +86,27 @@ final readonly class SiteContent
             foreach ($this->list($siteId, 'cms_pages') as $page) {
                 if (($page['section_id'] ?? null) === $id) {
                     throw new \DomainException('Section still contains pages.');
+                }
+            }
+        }
+        if ($kind === 'templates') {
+            foreach ($this->list($siteId, 'cms_pages') as $page) {
+                if (($page['template_id'] ?? null) === $id) {
+                    throw new \DomainException('Template is still assigned to pages.');
+                }
+            }
+        }
+        if ($kind === 'media') {
+            foreach ($this->list($siteId, 'media') as $medium) {
+                if (($medium['id'] ?? null) !== $id) {
+                    continue;
+                }
+                foreach ($this->list($siteId, 'cms_pages') as $page) {
+                    foreach (($page['blocks'] ?? []) as $block) {
+                        if (is_array($block) && ($block['content'] ?? null) === ($medium['url'] ?? null)) {
+                            throw new \DomainException('Media is still used by a page.');
+                        }
+                    }
                 }
             }
         }
@@ -75,7 +126,7 @@ final readonly class SiteContent
     public function list(string $siteId, string $kind, ?array $actor = null, bool $publishedOnly = false): array
     {
         Identifier::check($siteId);
-        if (!in_array($kind, ['sections', 'cms_pages', 'menus'], true)) {
+        if (!in_array($kind, ['sections', 'cms_pages', 'menus', 'templates', 'media'], true)) {
             throw new \InvalidArgumentException('Invalid content kind.');
         }
         $records = $this->store->read($siteId, $kind);
@@ -106,6 +157,17 @@ final readonly class SiteContent
         return null;
     }
 
+    public function find(string $siteId, string $kind, string $id): ?array
+    {
+        $id = self::slug($id);
+        foreach ($this->list($siteId, $kind) as $record) {
+            if (($record['id'] ?? null) === $id) {
+                return $record;
+            }
+        }
+        return null;
+    }
+
     private function save(string $siteId, array $actor, string $kind, array $input, bool $section): void
     {
         $id = self::slug((string) ($input['id'] ?? ''));
@@ -129,10 +191,7 @@ final readonly class SiteContent
         $title = self::text((string) ($input['title'] ?? ''), 200, false);
         $description = self::text((string) ($input['description'] ?? ''), 500, true);
         $visibility = self::visibility((string) ($input['visibility'] ?? 'public'));
-        $layout = (string) ($input['layout'] ?? 'one');
-        if (!in_array($layout, ['one', 'two', 'three'], true)) {
-            throw new \InvalidArgumentException('Invalid layout.');
-        }
+        $layout = self::layout((string) ($input['layout'] ?? 'one'));
         $now = gmdate('c');
         $record = compact('id', 'title', 'description', 'state', 'visibility', 'layout');
         $record['created_at'] = $existing['created_at'] ?? $now;
@@ -143,6 +202,15 @@ final readonly class SiteContent
             $record['blocks'] = self::blocks($input['blocks'] ?? []);
             $record['allowed_users'] = self::identifiers($input['allowed_users'] ?? []);
             $record['allowed_editors'] = self::identifiers($input['allowed_editors'] ?? []);
+            $record['template_id'] = ($input['template_id'] ?? '') === '' ? null : self::slug((string) $input['template_id']);
+            if ($record['template_id'] !== null) {
+                $template = $this->find($siteId, 'templates', $record['template_id']);
+                if ($template === null) {
+                    throw new \InvalidArgumentException('Selected template does not exist.');
+                }
+                $record['layout'] = (string) $template['layout'];
+                $record['show_sidebar'] = (bool) ($template['sidebar'] ?? false);
+            }
         }
         $this->replace($siteId, $kind, $id, $record);
     }
@@ -182,6 +250,14 @@ final readonly class SiteContent
     {
         if (!in_array($value, ['public', 'members', 'private'], true)) {
             throw new \InvalidArgumentException('Invalid visibility.');
+        }
+        return $value;
+    }
+
+    private static function layout(string $value): string
+    {
+        if (!in_array($value, ['one', 'two', 'three'], true)) {
+            throw new \InvalidArgumentException('Invalid layout.');
         }
         return $value;
     }

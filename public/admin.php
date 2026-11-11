@@ -12,6 +12,9 @@ use OneEngine\Storage\JsonStore;
 
 $https = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' && $_SERVER['HTTPS'] !== '';
 foreach (Headers::defaults($https) as $name => $value) {
+    if ($name === 'Content-Security-Policy') {
+        $value = "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' https:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+    }
     header($name . ': ' . $value);
 }
 header('Content-Type: text/html; charset=utf-8');
@@ -26,7 +29,7 @@ try {
     $site = Site::fromArray(require dirname(__DIR__) . '/config/site.php');
     $store = new JsonStore($private, __DIR__);
     echo (new AdminApplication($site->id, new IdentityService($store), new SiteContent($store)))
-        ->run($_SERVER['REQUEST_METHOD'] ?? 'GET', '/admin', $_POST);
+        ->run($_SERVER['REQUEST_METHOD'] ?? 'GET', '/admin', $_POST, $_GET);
 } catch (Throwable $error) {
     error_log('ONE admin failed: ' . $error::class);
     http_response_code($error instanceof DomainException ? 403 : ($error instanceof InvalidArgumentException ? 422 : 503));
