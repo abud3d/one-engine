@@ -102,6 +102,16 @@ test('mounted ARBNT pages, assets and administration UI are served without expos
             check(str_contains($body, $text), 'Empty legacy view: ' . $uri);
             check(str_contains($headers, 'X-Robots-Tag: noindex'), 'Preview must stay noindex');
         }
+        [$body, $headers] = httpRequest($base . '/community');
+        check(str_contains($headers, '302 Found') && str_contains($headers, '/community/community.html'),
+            'Community alias should open the full ARBNT application');
+        [$home, $headers] = httpRequest($base . '/');
+        check(str_contains($headers, '200 OK'));
+        check(str_contains($home, 'href="/community/community.html"'));
+        check(str_contains($home, 'href="/community/login.html"'));
+        check(str_contains($home, 'href="/community/admin.html"'));
+        [$pages, $headers] = httpRequest($base . '/pages');
+        check(str_contains($headers, '200 OK') && str_contains($pages, 'href="/community/admin.html"'));
         [$css, $headers] = httpRequest($base . '/community/assets/shell.css');
         check(str_contains($headers, '200 OK') && str_contains($css, '.arb-shell'));
         [$js, $headers] = httpRequest($base . '/community/assets/shell.js');
