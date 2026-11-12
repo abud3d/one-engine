@@ -41,7 +41,7 @@ jobs:
           php -l bin/one-pages
           php -l bin/one-admin
           php -l bin/one-demo-package
-          php -l bin/one-install
+          php -l bin/one-install\n          php -l bin/one-doctor
           php -l bin/one-cms-package
       - name: Behavioral, concurrency and HTTP tests
         run: php tests/run.php

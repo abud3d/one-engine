@@ -24,7 +24,7 @@ final readonly class CmsPackageBuilder
             foreach (['bootstrap.php', 'NOTICE.md', 'config/php.ini', 'config/site.php',
                 'public/index.php', 'public/admin.php', 'public/router.php', 'public/.htaccess',
                 'public/assets/app.css', 'public/assets/admin.css', 'public/assets/admin.js',
-                'bin/one', 'bin/one-admin', 'bin/one-install'] as $file) {
+                'bin/one', 'bin/one-admin', 'bin/one-install', 'bin/one-doctor'] as $file) {
                 $this->copy($stage, $file);
             }
             foreach (['Core', 'Storage', 'Security', 'Modules'] as $directory) {
@@ -125,7 +125,7 @@ unset ONE_ADMIN_PASSWORD
 
 The installer creates `config/local.php` with mode `0600`, stores the trusted HTTPS Origin, and creates the data directory with mode `0700`. It does not store the supplied password. Do not move `config/local.php` or the private directory into `public`.
 
-Open `/admin`, sign in, then create a section, page, blocks and menu. Save the page as draft, use its protected preview link, then publish it. Public pages use `/p/SLUG`; section pages use `/sections/SLUG`.
+Run `php bin/one-doctor` to check the local PHP environment, configuration and private-directory permissions. This does not verify actual CWP routing or TLS; verify those separately.\n\nOpen `/admin`, sign in, then create a section, page, blocks and menu. Save the page as draft, use its protected preview link, then publish it. Public pages use `/p/SLUG`; section pages use `/sections/SLUG`.
 
 For CWP: select PHP-FPM 8.3 for the domain, enable HTTPS, extract the package outside `public_html`, and set the domain Document Root to the extracted `one-engine-cms/public`. If the hosting plan cannot set that Document Root, stop and ask the host; do not expose the whole package under `public_html`. Apache must allow `mod_rewrite` and this package's `public/.htaccess`.
 
