@@ -111,7 +111,13 @@ try {
     request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'section', 'id' => 'acceptance', 'title' => 'Acceptance', 'description' => '', 'layout' => 'one', 'visibility' => 'public', 'state' => 'published'], $cookie);
     [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
     preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
-    $page = ['csrf' => $token[1], 'action' => 'page', 'id' => 'installed-page', 'title' => 'Installed page', 'description' => 'Acceptance', 'body' => 'Created inside packaged CMS', 'section_id' => 'acceptance', 'block_type' => ['heading'], 'block_content' => ['Real block'], 'block_visibility' => ['public'], 'block_column' => ['1'], 'allowed_users' => [], 'allowed_editors' => [], 'layout' => 'two', 'visibility' => 'public', 'state' => 'draft'];
+    request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'template', 'id' => 'acceptance-template', 'title' => 'Acceptance template', 'description' => '', 'layout' => 'three', 'sidebar' => '1'], $cookie);
+    [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
+    preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
+    request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'media', 'id' => 'hero', 'title' => 'Hero', 'alt' => 'Hero image', 'url' => 'https://cdn.example.test/hero.webp'], $cookie);
+    [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
+    preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
+    $page = ['csrf' => $token[1], 'action' => 'page', 'id' => 'installed-page', 'title' => 'Installed page', 'description' => 'Acceptance', 'body' => 'Created inside packaged CMS', 'section_id' => 'acceptance', 'template_id' => 'acceptance-template', 'block_type' => ['heading', 'image'], 'block_content' => ['Real block', 'https://cdn.example.test/hero.webp'], 'block_visibility' => ['public', 'public'], 'block_column' => ['1', '2'], 'allowed_users' => [], 'allowed_editors' => [], 'layout' => 'two', 'visibility' => 'public', 'state' => 'draft'];
     request($base . '/admin', 'POST', $page, $cookie);
     [$preview, $headers] = request($base . '/preview/installed-page', 'GET', [], $cookie);
     requireCheck(str_contains(implode("\n", $headers), '200 OK') && str_contains($preview, 'Real block'), 'Draft preview failed.');
@@ -122,8 +128,12 @@ try {
     $page['csrf'] = $token[1];
     $page['state'] = 'published';
     request($base . '/admin', 'POST', $page, $cookie);
+    [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
+    preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
+    request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'menu', 'id' => 'installed-link', 'label' => 'Installed menu', 'url' => '/p/installed-page', 'position' => 'header', 'visibility' => 'public'], $cookie);
     [$public, $headers] = request($base . '/p/installed-page');
     requireCheck(str_contains(implode("\n", $headers), '200 OK') && str_contains($public, 'Created inside packaged CMS'), 'Published page unavailable.');
+    requireCheck(str_contains($public, 'Installed CMS') && str_contains($public, 'layout-three') && str_contains($public, 'cdn.example.test/hero.webp') && str_contains($public, 'Installed menu'), 'Managed settings, template, media or menu missing from public site.');
     [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
     preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
     [$backupPage] = request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'backup_create'], $cookie);
