@@ -20,8 +20,8 @@ cleanup() {
   docker rm -f "$name" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
-docker run -d --name "$name" -p 127.0.0.1::80 -v "$work:$work" -e "CMS_ROOT=$root" php:8.3-apache \
-  bash -lc 'a2enmod rewrite >/dev/null && sed -ri "s!/var/www/html!${CMS_ROOT}/public!g" /etc/apache2/sites-available/000-default.conf /etc/apache2/apache2.conf /etc/apache2/conf-available/docker-php.conf && printf "<Directory %s/public>\nAllowOverride All\nRequire all granted\n</Directory>\n" "$CMS_ROOT" > /etc/apache2/conf-available/one-cms.conf && a2enconf one-cms >/dev/null && apache2-foreground' >/dev/null
+docker run -d --name "$name" -p 127.0.0.1::80 -v "$work:$work" -e "CMS_ROOT=$root" -e "HOST_UID=$(id -u)" -e "HOST_GID=$(id -g)" php:8.3-apache \
+  bash -lc 'printf "export APACHE_RUN_USER=#%s\nexport APACHE_RUN_GROUP=#%s\n" "$HOST_UID" "$HOST_GID" >> /etc/apache2/envvars && a2enmod rewrite >/dev/null && sed -ri "s!/var/www/html!${CMS_ROOT}/public!g" /etc/apache2/sites-available/000-default.conf /etc/apache2/apache2.conf /etc/apache2/conf-available/docker-php.conf && printf "<Directory %s/public>\nAllowOverride All\nRequire all granted\n</Directory>\n" "$CMS_ROOT" > /etc/apache2/conf-available/one-cms.conf && a2enconf one-cms >/dev/null && apache2-foreground' >/dev/null
 port="$(docker port "$name" 80/tcp | sed -n 's/.*://p')"
 base="http://localhost:${port}"
 for _ in $(seq 1 50); do
