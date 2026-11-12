@@ -90,6 +90,9 @@ test('identity administration changes roles and preserves a final active adminis
     $identity->create('demo', 'user-one', 'user.one', 'member password value', 'member');
     $identity->update('demo', 'user-one', 'editor', true, 'new editor password');
     check($identity->authenticate('demo', 'user.one', 'new editor password')['role'] === 'editor');
+    $sessionActor = $identity->authenticate('demo', 'user.one', 'new editor password');
+    $identity->update('demo', 'user-one', 'member', true);
+    check($identity->validateSession('demo', $sessionActor) === null);
     rejects(fn () => $identity->update('demo', 'admin-one', 'member', true), DomainException::class);
 });
 

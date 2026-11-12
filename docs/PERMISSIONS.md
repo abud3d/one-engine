@@ -37,7 +37,8 @@ Unsupported capability values are rejected at object construction.
 | Central administrator with no local site grant | Deny |
 
 The operational CMS converts trusted site roles into explicit site grants before
-calling this evaluator. Per-user and per-object grant editing remains future work.
+calling this evaluator. Page forms also persist explicit reader and editor IDs;
+these narrow member reads and editor updates without creating a global bypass.
 Relation existence by itself
 does not grant access. A private reply/internal note must have its own policy;
 access to a parent must never expose private child content implicitly.
@@ -48,7 +49,8 @@ the object under the trusted site context, check capability and permissions,
 then perform any state validation and transaction. Recheck relevant policy
 inside the same transaction when policy can change concurrently.
 
-The CMS uses HttpOnly SameSite=Strict cookies (Secure under HTTPS), session ID
-rotation and idle expiry, CSRF tokens, bounded inputs, account rate limits and
-escaped output. A durable audit log and configurable Origin allowlist remain
-before production deployment; see `KNOWN_ISSUES.md`.
+The CMS uses HttpOnly Secure SameSite=Strict cookies for installed HTTPS sites,
+session ID rotation, idle expiry and version invalidation, CSRF tokens, a strict
+configured HTTPS Origin, bounded inputs, account rate limits and escaped output.
+Administrative changes are recorded in the local bounded audit log. Its retention
+and tamper-evidence limits are recorded in `KNOWN_ISSUES.md`.

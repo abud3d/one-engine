@@ -7,11 +7,14 @@ require dirname(__DIR__) . '/bootstrap.php';
 use OneEngine\Modules\Identity\IdentityService;
 use OneEngine\Modules\Runtime\Site;
 use OneEngine\Storage\JsonStore;
+use OneEngine\Security\OriginGuard;
 
 try {
     if (count($argv) !== 4) {
-        throw new InvalidArgumentException('Usage: php bin/one-install PRIVATE_DIRECTORY ADMIN_USERNAME ADMIN_PASSWORD');
+        throw new InvalidArgumentException('Usage: ONE_ADMIN_PASSWORD=... php bin/one-install PRIVATE_DIRECTORY ADMIN_USERNAME HTTPS_ORIGIN');
     }
+    $password = getenv('ONE_ADMIN_PASSWORD');
+    if (!is_string($password) || $password === '') throw new InvalidArgumentException('Set ONE_ADMIN_PASSWORD temporarily; it is never stored as plain text.');
     $root = dirname(__DIR__);
     $private = $argv[1];
     if (!is_dir($private) && !mkdir($private, 0700, true)) {
@@ -26,9 +29,12 @@ try {
         throw new RuntimeException('Local configuration already exists; installation was not changed.');
     }
     $site = Site::fromArray(require $root . '/config/site.php');
+    $trustedOrigin = OriginGuard::validate($argv[3]);
     $store = new JsonStore($resolved, $root . '/public');
-    (new IdentityService($store))->create($site->id, 'admin-' . bin2hex(random_bytes(8)), $argv[2], $argv[3], 'admin');
-    $content = "<?php\ndeclare(strict_types=1);\nreturn " . var_export(['private_dir' => $resolved], true) . ";\n";
+    (new IdentityService($store))->create($site->id, 'admin-' . bin2hex(random_bytes(8)), $argv[2], $password, 'admin');
+    putenv('ONE_ADMIN_PASSWORD');
+    $password = '';
+    $content = "<?php\ndeclare(strict_types=1);\nreturn " . var_export(['private_dir' => $resolved, 'trusted_origin' => $trustedOrigin], true) . ";\n";
     $temp = $local . '.' . bin2hex(random_bytes(8)) . '.tmp';
     $stream = fopen($temp, 'x+b');
     if ($stream === false) {

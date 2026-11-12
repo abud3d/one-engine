@@ -76,6 +76,35 @@ final readonly class SiteContent
     }
 
     /** @param array{id:string,role:string} $actor */
+    public function saveSettings(string $siteId, array $actor, array $input): void
+    {
+        if (!Access::allows($actor, Action::Delete, null, $siteId)) throw new \DomainException('Forbidden.');
+        $title = self::text((string) ($input['title'] ?? ''), 200, false);
+        $description = self::text((string) ($input['description'] ?? ''), 1000, true);
+        $baseUrl = rtrim((string) ($input['base_url'] ?? ''), '/');
+        $url = parse_url($baseUrl);
+        if (!filter_var($baseUrl, FILTER_VALIDATE_URL) || !is_array($url) || ($url['scheme'] ?? '') !== 'https' || empty($url['host'])
+            || isset($url['user'], $url['pass'], $url['query'], $url['fragment']) || !in_array($url['path'] ?? '', ['', '/'], true)) {
+            throw new \InvalidArgumentException('Site URL must be one HTTPS origin.');
+        }
+        $indexable = ($input['indexable'] ?? '') === '1';
+        $this->store->update($siteId, 'settings', static fn (): array => ['title' => $title, 'description' => $description, 'base_url' => $baseUrl, 'indexable' => $indexable]);
+    }
+
+    /** @return array{title?:string,description?:string,base_url?:string,indexable?:bool} */
+    public function settings(string $siteId): array
+    {
+        Identifier::check($siteId);
+        $settings = $this->store->read($siteId, 'settings');
+        if ($settings === []) return [];
+        if (!isset($settings['title'], $settings['description'], $settings['base_url'], $settings['indexable'])
+            || !is_string($settings['title']) || !is_string($settings['description']) || !is_string($settings['base_url']) || !is_bool($settings['indexable'])) {
+            throw new \UnexpectedValueException('Invalid site settings.');
+        }
+        return $settings;
+    }
+
+    /** @param array{id:string,role:string} $actor */
     public function delete(string $siteId, array $actor, string $kind, string $id): void
     {
         if (!Access::allows($actor, Action::Delete, null, $siteId) || !in_array($kind, ['sections', 'cms_pages', 'menus', 'templates', 'media'], true)) {

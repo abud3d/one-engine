@@ -13,9 +13,9 @@ function requireCheck(bool $condition, string $message): void
     }
 }
 
-function request(string $url, string $method = 'GET', array $data = [], string $cookie = ''): array
+function request(string $url, string $method = 'GET', array $data = [], string $cookie = '', string $origin = 'https://cms.example.test'): array
 {
-    $headers = "Host: attacker.invalid\r\n";
+    $headers = "Host: attacker.invalid\r\nOrigin: {$origin}\r\n";
     if ($cookie !== '') {
         $headers .= 'Cookie: ' . $cookie . "\r\n";
     }
@@ -52,8 +52,8 @@ $root = $work . '/one-engine-cms';
 $private = $work . '/private-data';
 requireCheck(!is_dir($root . '/private') && !is_file($root . '/config/local.php'), 'Archive contains private state.');
 $password = 'acceptance password 2026';
-$command = [PHP_BINARY, $root . '/bin/one-install', $private, 'admin.cms', $password];
-$process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+$command = [PHP_BINARY, $root . '/bin/one-install', $private, 'admin.cms', 'https://cms.example.test'];
+$process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root, array_merge(getenv(), ['ONE_ADMIN_PASSWORD' => $password]));
 requireCheck(is_resource($process), 'Cannot run installer.');
 fclose($pipes[0]);
 $installOutput = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
@@ -94,6 +94,8 @@ try {
     requireCheck(preg_match('/name="csrf" value="([a-f0-9]{64})"/', $login, $token) === 1, 'Login CSRF missing.');
     requireCheck(preg_match('/Set-Cookie:\s*(ONESESSID=[^;]+)/i', implode("\n", $headers), $cookieMatch) === 1, 'Session cookie missing.');
     $cookie = $cookieMatch[1];
+    [, $foreignHeaders] = request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'login', 'username' => 'admin.cms', 'password' => $password], $cookie, 'https://evil.example');
+    requireCheck(str_contains(implode("\n", $foreignHeaders), '403 Forbidden'), 'Foreign Origin was not rejected.');
     [, $headers] = request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'login', 'username' => 'admin.cms', 'password' => $password], $cookie);
     requireCheck(str_contains(implode("\n", $headers), '303 See Other'), 'Packaged admin login failed.');
     if (preg_match('/Set-Cookie:\s*(ONESESSID=[^;]+)/i', implode("\n", $headers), $rotated) === 1) {
@@ -101,10 +103,15 @@ try {
     }
     [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
     requireCheck(preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token) === 1, 'Dashboard CSRF missing.');
+    [$editor] = request($base . '/admin?view=pages', 'GET', [], $cookie);
+    requireCheck(str_contains($editor, 'name="block_type[]"') && !str_contains($editor, 'name="blocks"'), 'Visual block editor missing.');
+    request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'settings', 'title' => 'Installed CMS', 'description' => 'Acceptance site', 'base_url' => 'https://cms.example.test', 'indexable' => '1'], $cookie);
+    [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
+    preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
     request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'section', 'id' => 'acceptance', 'title' => 'Acceptance', 'description' => '', 'layout' => 'one', 'visibility' => 'public', 'state' => 'published'], $cookie);
     [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
     preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
-    $page = ['csrf' => $token[1], 'action' => 'page', 'id' => 'installed-page', 'title' => 'Installed page', 'description' => 'Acceptance', 'body' => 'Created inside packaged CMS', 'section_id' => 'acceptance', 'blocks' => '[{"type":"heading","content":"Real block","visibility":"public","column":1}]', 'allowed_users' => '', 'allowed_editors' => '', 'layout' => 'two', 'visibility' => 'public', 'state' => 'draft'];
+    $page = ['csrf' => $token[1], 'action' => 'page', 'id' => 'installed-page', 'title' => 'Installed page', 'description' => 'Acceptance', 'body' => 'Created inside packaged CMS', 'section_id' => 'acceptance', 'block_type' => ['heading'], 'block_content' => ['Real block'], 'block_visibility' => ['public'], 'block_column' => ['1'], 'allowed_users' => [], 'allowed_editors' => [], 'layout' => 'two', 'visibility' => 'public', 'state' => 'draft'];
     request($base . '/admin', 'POST', $page, $cookie);
     [$preview, $headers] = request($base . '/preview/installed-page', 'GET', [], $cookie);
     requireCheck(str_contains(implode("\n", $headers), '200 OK') && str_contains($preview, 'Real block'), 'Draft preview failed.');
@@ -117,6 +124,14 @@ try {
     request($base . '/admin', 'POST', $page, $cookie);
     [$public, $headers] = request($base . '/p/installed-page');
     requireCheck(str_contains(implode("\n", $headers), '200 OK') && str_contains($public, 'Created inside packaged CMS'), 'Published page unavailable.');
+    [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
+    preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
+    [$backupPage] = request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'backup_create'], $cookie);
+    requireCheck(str_contains($backupPage, 'تم إنشاء النسخة الاحتياطية'), 'Packaged backup creation failed.');
+    [$backups] = request($base . '/admin?view=backups', 'GET', [], $cookie);
+    requireCheck(str_contains($backups, '.json'), 'Packaged backup is not listed.');
+    [$audit] = request($base . '/admin?view=audit', 'GET', [], $cookie);
+    requireCheck(str_contains($audit, 'content.page') && str_contains($audit, 'backup.created'), 'Packaged audit log missing events.');
 } finally {
     proc_terminate($server);
     proc_close($server);

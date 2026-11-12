@@ -6,7 +6,8 @@ ini_set('log_errors', '1');
 
 try {
     require dirname(__DIR__) . '/bootstrap.php';
-    $site = \OneEngine\Modules\Runtime\Site::fromArray(require dirname(__DIR__) . '/config/site.php');
+    $siteConfig = require dirname(__DIR__) . '/config/site.php';
+    $site = \OneEngine\Modules\Runtime\Site::fromArray($siteConfig);
     $https = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' && $_SERVER['HTTPS'] !== '';
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     // Optional private JSON storage; public index and community stay reachable without it.
@@ -20,9 +21,21 @@ try {
         $pages = new \OneEngine\Modules\Runtime\PageCatalog($store);
         $community = new \OneEngine\Modules\Runtime\CommunityCatalog($store);
         $cms = new \OneEngine\Modules\Content\SiteContent($store);
+        $settings = $cms->settings($site->id);
+        if ($settings !== []) $site = \OneEngine\Modules\Runtime\Site::fromArray(array_merge($siteConfig, $settings));
         if (isset($_COOKIE['ONESESSID'])) {
             \OneEngine\Modules\Identity\SessionGuard::start($https);
             $actor = \OneEngine\Modules\Identity\SessionGuard::actor($site->id);
+            if ($actor !== null) {
+                $validated = (new \OneEngine\Modules\Identity\IdentityService($store))->validateSession($site->id, $actor);
+                if ($validated === null) {
+                    \OneEngine\Modules\Identity\SessionGuard::invalidate();
+                    $actor = null;
+                } else {
+                    \OneEngine\Modules\Identity\SessionGuard::refresh($validated);
+                    $actor = $validated;
+                }
+            }
         }
     }
     (new \OneEngine\Modules\Runtime\Application($site, __DIR__, $pages, $community, $cms, $actor))
