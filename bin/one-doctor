@@ -1,0 +1,71 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+/**
+ * Read-only installation preflight. No network calls, writes, or secret output.
+ * Exit: 0 ready for local checks, 2 incomplete/unsafe installation.
+ * A success does NOT certify the real CWP document root or HTTPS routing.
+ */
+$root = dirname(__DIR__);
+$problems = [];
+$notes = [];
+$check = static function (bool $ok, string $message) use (&$problems): void {
+    if (!$ok) {
+        $problems[] = $message;
+    }
+};
+
+$check(PHP_VERSION_ID >= 80300, 'PHP 8.3+ is required.');
+foreach (['json', 'session', 'hash', 'openssl'] as $extension) {
+    $check(extension_loaded($extension), "Missing PHP extension: {$extension}");
+}
+$check(is_dir($root . '/public'), 'Public document directory is missing.');
+$check(is_file($root . '/public/.htaccess'), 'Apache rewrite configuration is missing.');
+$check(is_file($root . '/config/site.php'), 'Site configuration is missing.');
+
+$configFile = $root . '/config/local.php';
+if (!is_file($configFile) || is_link($configFile)) {
+    $problems[] = 'Local installation configuration is missing or is a symlink. Run one-install before this check.';
+} else {
+    $mode = fileperms($configFile);
+    $check($mode !== false && ($mode & 0077) === 0, 'Local configuration grants group/other access.');
+    try {
+        $config = require $configFile;
+        if (!is_array($config)) {
+            throw new RuntimeException('Invalid local configuration format.');
+        }
+        $private = $config['private_dir'] ?? null;
+        $origin = $config['trusted_origin'] ?? null;
+        $check(is_string($origin) && preg_match('~^https://[a-z0-9.-]+(?::[0-9]{1,5})?$~iD', $origin) === 1, 'Trusted origin must be an HTTPS origin without a path.');
+        if (!is_string($private) || $private === '') {
+            $problems[] = 'Private directory is not configured.';
+        } else {
+            $resolved = realpath($private);
+            $public = realpath($root . '/public');
+            $check($resolved !== false && is_dir($resolved), 'Private directory does not exist.');
+            if ($resolved !== false && $public !== false) {
+                $check($resolved !== $public && !str_starts_with($resolved, $public . DIRECTORY_SEPARATOR), 'Private directory is inside the public document root.');
+                $perm = fileperms($resolved);
+                $check($perm !== false && ($perm & 0077) === 0, 'Private directory grants group/other access.');
+                $check(is_readable($resolved) && is_writable($resolved), 'Private directory must be readable and writable by PHP.');
+            }
+        }
+    } catch (Throwable $error) {
+        $problems[] = 'Local configuration cannot be loaded safely.';
+    }
+}
+
+$notes[] = 'Cannot inspect the actual CWP DocumentRoot, TLS, or Apache AllowOverride from this command.';
+$notes[] = 'Verify HTTPS access, /admin, clean URLs, and denied private-file access from a separate client.';
+foreach ($problems as $problem) {
+    fwrite(STDOUT, "FAIL: {$problem}\n");
+}
+foreach ($notes as $note) {
+    fwrite(STDOUT, "NOTE: {$note}\n");
+}
+if ($problems !== []) {
+    fwrite(STDOUT, "ONE Engine preflight: INCOMPLETE (" . count($problems) . " issue(s)).\n");
+    exit(2);
+}
+fwrite(STDOUT, "ONE Engine preflight: LOCAL CHECKS PASS; host verification still required.\n");
