@@ -6,7 +6,7 @@ use OneEngine\Modules\Builder\CmsPackageBuilder;
 test('interactive CMS package contains runtime and administration but no data or credentials', function () use ($temp): void {
     $destination = $temp . '/cms-package';
     (new CmsPackageBuilder(dirname(__DIR__)))->build($destination);
-    foreach (['bootstrap.php', 'public/index.php', 'public/admin.php', 'public/router.php', 'public/.htaccess',
+    foreach (['bootstrap.php', 'public/index.php', 'public/admin.php', 'public/setup.php', 'public/router.php', 'public/.htaccess', 'public/assets/setup.css',
         'bin/one-install', 'bin/one', 'config/version.php', 'src/Core/EngineVersion.php', 'src/Modules/Content/SiteContent.php',
         'src/Modules/Identity/IdentityService.php', 'src/Modules/CentralManagement/AdminApplication.php',
         'src/Modules/Builder/ContentReleaseBuilder.php', 'INSTALL.md', 'package.json'] as $file) {

@@ -13,8 +13,8 @@ function demoSite(Mode $mode = Mode::Dynamic, bool $indexable = false): Site
 
 test('semantic version metadata is centralized and visible in public output', function (): void {
     $engine = EngineVersion::current();
-    check($engine->version === '0.3.0');
-    check($engine->build === 'ONE-030-001');
+    check($engine->version === '0.4.0');
+    check($engine->build === 'ONE-040-001');
     $site = demoSite();
     $html = (new Renderer())->home($site, Application::demoPage($site));
     check(str_contains($html, $engine->label()));

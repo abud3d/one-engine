@@ -34,7 +34,7 @@ try {
     (new IdentityService($store))->create($site->id, 'admin-' . bin2hex(random_bytes(8)), $argv[2], $password, 'admin');
     putenv('ONE_ADMIN_PASSWORD');
     $password = '';
-    $content = "<?php\ndeclare(strict_types=1);\nreturn " . var_export(['private_dir' => $resolved, 'trusted_origin' => $trustedOrigin], true) . ";\n";
+    $content = "<?php\ndeclare(strict_types=1);\nreturn " . var_export(['private_dir' => $resolved, 'trusted_origin' => $trustedOrigin, 'storage' => 'json', 'language' => 'ar'], true) . ";\n";
     $temp = $local . '.' . bin2hex(random_bytes(8)) . '.tmp';
     $stream = fopen($temp, 'x+b');
     if ($stream === false) {

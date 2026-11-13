@@ -18,6 +18,9 @@ final readonly class AdminApplication
         private ?BackupService $backups = null,
         private ?OperationLock $lock = null,
         private array $siteDefaults = [],
+        private ?StorageMigration $storageMigration = null,
+        private string $storageType = 'json',
+        private string $privateDirectory = '',
     ) {}
 
     public function run(string $method, string $path, array $post, array $query = []): string
@@ -46,7 +49,13 @@ final readonly class AdminApplication
                 exit;
             } else {
                 $actor = $this->actor();
-                if ($action === 'backup_create') {
+                if ($action === 'storage_upgrade') {
+                    $this->admin($actor);
+                    if ($this->storageMigration === null) throw new \RuntimeException('Storage migration unavailable.');
+                    $this->audit?->record($this->siteId, (string) $actor['id'], 'storage.upgrade_requested', 'sqlite');
+                    $this->storageMigration->toSqlite();
+                    $message = 'اكتملت الترقية إلى SQLite. أعد تحميل الصفحة لاستخدام المخزن الجديد.';
+                } elseif ($action === 'backup_create') {
                     $this->admin($actor);
                     if ($this->backups === null) throw new \RuntimeException('Backup service unavailable.');
                     $name = $this->backups->create($this->siteId);
@@ -122,7 +131,7 @@ final readonly class AdminApplication
             return $this->shell('حساب العضو', $this->header($actor) . '<main><h1>حساب العضو</h1><p>يمكنك فتح الصفحات العامة أو المخصصة لمعرفك.</p></main>');
         }
         $view = is_string($query['view'] ?? null) ? $query['view'] : 'overview';
-        $allowed = ['overview', 'sections', 'pages', 'templates', 'menus', 'media', 'users', 'settings', 'audit', 'backups'];
+        $allowed = ['overview', 'sections', 'pages', 'templates', 'menus', 'media', 'users', 'settings', 'storage', 'audit', 'backups'];
         if (!in_array($view, $allowed, true) || (in_array($view, ['users', 'settings', 'audit', 'backups'], true) && $actor['role'] !== 'admin')) {
             $view = 'overview';
         }
@@ -134,6 +143,7 @@ final readonly class AdminApplication
             'media' => $this->media($query),
             'users' => $this->users(),
             'settings' => $this->settingsView(),
+            'storage' => $this->storageView(),
             'audit' => $this->auditView(),
             'backups' => $this->backupsView(),
             default => $this->overview(),
@@ -147,6 +157,7 @@ final readonly class AdminApplication
         if ($actor['role'] === 'admin') {
             $links['users'] = 'الأعضاء والصلاحيات';
             $links['settings'] = 'إعدادات الموقع';
+            $links['storage'] = 'التخزين';
             $links['audit'] = 'سجل التدقيق';
             $links['backups'] = 'النسخ الاحتياطي';
         }
@@ -161,7 +172,7 @@ final readonly class AdminApplication
         $pages = $this->content->list($this->siteId, 'cms_pages');
         $published = count(array_filter($pages, static fn (array $p): bool => ($p['state'] ?? '') === 'published'));
         $engine = EngineVersion::current();
-        return '<section class="stats"><article><span>الأقسام</span><b>' . count($sections) . '</b></article><article><span>الصفحات</span><b>' . count($pages) . '</b></article><article><span>المنشور</span><b>' . $published . '</b></article><article><span>المسودات</span><b>' . (count($pages) - $published) . '</b></article></section><section><h2>ابدأ العمل</h2><div class="quick-actions"><a class="button" href="/admin?view=pages">إنشاء صفحة</a><a class="secondary" href="/admin?view=sections">إدارة الأقسام</a><a class="secondary" href="/admin?view=templates">إدارة القوالب</a></div></section><section><h2>معلومات النظام</h2><div class="stats system-info"><article><span>إصدار المحرك</span><b dir="ltr">' . self::e($engine->version) . '</b></article><article><span>رقم البناء</span><b dir="ltr">' . self::e($engine->build) . '</b></article><article><span>تاريخ البناء</span><b dir="ltr">' . self::e($engine->builtAt) . '</b></article><article><span>PHP</span><b dir="ltr">' . self::e(PHP_VERSION) . '</b></article><article><span>التخزين الفعلي</span><b>JSON</b></article></div></section>';
+        return '<section class="stats"><article><span>الأقسام</span><b>' . count($sections) . '</b></article><article><span>الصفحات</span><b>' . count($pages) . '</b></article><article><span>المنشور</span><b>' . $published . '</b></article><article><span>المسودات</span><b>' . (count($pages) - $published) . '</b></article></section><section><h2>ابدأ العمل</h2><div class="quick-actions"><a class="button" href="/admin?view=pages">إنشاء صفحة</a><a class="secondary" href="/admin?view=sections">إدارة الأقسام</a><a class="secondary" href="/admin?view=templates">إدارة القوالب</a></div></section><section><h2>معلومات النظام</h2><div class="stats system-info"><article><span>إصدار المحرك</span><b dir="ltr">' . self::e($engine->version) . '</b></article><article><span>رقم البناء</span><b dir="ltr">' . self::e($engine->build) . '</b></article><article><span>تاريخ البناء</span><b dir="ltr">' . self::e($engine->builtAt) . '</b></article><article><span>PHP</span><b dir="ltr">' . self::e(PHP_VERSION) . '</b></article><article><span>التخزين الفعلي</span><b>' . self::e(strtoupper($this->storageType)) . '</b></article></div></section>';
     }
 
     private function sections(array $query): string
@@ -254,6 +265,26 @@ final readonly class AdminApplication
         }
         if ($rows === '') $rows = '<tr><td colspan="4" class="empty">لا توجد نسخ بعد.</td></tr>';
         return '<section><div class="section-title"><div><h2>النسخ الاحتياطي والاستعادة</h2><p class="help">تُحفظ النسخ بصلاحية خاصة خارج public وتُفحص قبل الاستعادة.</p></div><form method="post"><input type="hidden" name="csrf" value="' . self::e(SessionGuard::csrf()) . '"><input type="hidden" name="action" value="backup_create"><button>إنشاء نسخة الآن</button></form></div><div class="table-wrap"><table><thead><tr><th>الملف</th><th>الحجم</th><th>التاريخ</th><th>الإجراء</th></tr></thead><tbody>' . $rows . '</tbody></table></div></section>';
+    }
+
+    private function storageView(): string
+    {
+        $count = count($this->identity->all($this->siteId));
+        foreach (['sections', 'cms_pages', 'menus', 'templates', 'media'] as $kind) $count += count($this->content->list($this->siteId, $kind));
+        $bytes = 0;
+        if ($this->privateDirectory !== '' && is_dir($this->privateDirectory)) {
+            foreach (new \DirectoryIterator($this->privateDirectory) as $file) {
+                if (!$file->isDot() && $file->isFile() && !$file->isLink()) $bytes += $file->getSize();
+            }
+        }
+        $backupRows = $this->backups?->all() ?? [];
+        $latest = $backupRows[0]['modified'] ?? 'لا توجد';
+        $upgrade = $this->storageType === 'json'
+            ? (extension_loaded('pdo_sqlite')
+                ? '<form method="post" data-confirm="سيُنشئ النظام نسخة احتياطية ثم ينقل البيانات ويتحقق منها. هل تريد المتابعة؟"><input type="hidden" name="csrf" value="' . self::e(SessionGuard::csrf()) . '"><input type="hidden" name="action" value="storage_upgrade"><button>الترقية إلى SQLite</button></form>'
+                : '<p class="notice">إضافة PDO_SQLite غير متاحة على الخادم. فعّلها من إعداد PHP ثم أعد المحاولة.</p>')
+            : '<p class="notice">SQLite هو المخزن النشط. احتُفظ بملفات JSON والنسخة الاحتياطية دون حذف.</p>';
+        return '<section><h2>حالة التخزين</h2><div class="stats"><article><span>النوع الحالي</span><b>' . self::e(strtoupper($this->storageType)) . '</b></article><article><span>الحالة</span><b>سليم</b></article><article><span>الحجم</span><b>' . number_format($bytes) . ' B</b></article><article><span>السجلات</span><b>' . $count . '</b></article></div><p>آخر نسخة احتياطية: <span dir="ltr">' . self::e((string) $latest) . '</span></p>' . $upgrade . '</section>';
     }
 
     private function listing(string $title, array $records, string $kind, string $view, bool $preview = false, string $help = ''): string

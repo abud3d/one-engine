@@ -9,7 +9,7 @@ use OneEngine\Modules\CentralManagement\SiteCatalog;
 use OneEngine\Modules\Runtime\Site;
 use OneEngine\Modules\Builder\ContentReleaseBuilder;
 use OneEngine\Modules\Content\SiteContent;
-use OneEngine\Storage\JsonStore;
+use OneEngine\Storage\StoreFactory;
 use OneEngine\Core\EngineVersion;
 
 try {
@@ -26,7 +26,7 @@ try {
         (new ReleaseBuilder(dirname(__DIR__)))->build($site, $argv[3]);
         echo 'Built ' . $site->mode->value . " release. Nothing was deployed.\n";
     } elseif (($argv[1] ?? '') === 'export' && in_array(count($argv), [4, 5], true)) {
-        $store = new JsonStore($argv[2], dirname(__DIR__) . '/public');
+        $store = StoreFactory::create(\OneEngine\Modules\Runtime\LocalConfiguration::storageType(dirname(__DIR__)), $argv[2], dirname(__DIR__) . '/public');
         $content = new SiteContent($store);
         $site = Site::fromArray(array_merge($config, $content->settings($config['id'])));
         $builder = new ContentReleaseBuilder(dirname(__DIR__), $content);

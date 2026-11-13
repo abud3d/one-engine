@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-use OneEngine\Modules\CentralManagement\{AuditLog, BackupService, OperationLock};
+use OneEngine\Modules\CentralManagement\{AuditLog, BackupService, OperationLock, StorageMigration};
 use OneEngine\Modules\Content\SiteContent;
 use OneEngine\Security\OriginGuard;
-use OneEngine\Storage\JsonStore;
+use OneEngine\Storage\{JsonStore, SqliteStore};
 
 test('trusted Origin rejects missing foreign and malformed administration origins', function (): void {
     check(OriginGuard::validate('https://cms.example.test/') === 'https://cms.example.test');
@@ -76,4 +76,42 @@ test('operation lock has a bounded timeout during restore contention', function 
         flock($held, LOCK_UN);
         fclose($held);
     }
+});
+
+test('JSON to SQLite migration verifies documents and switches configuration atomically', function () use ($temp): void {
+    $root = $temp . '/migration-root';
+    $private = $temp . '/migration-private';
+    mkdir($root . '/config', 0700, true);
+    mkdir($root . '/public', 0700);
+    mkdir($private, 0700);
+    file_put_contents($root . '/config/local.php', "<?php return ['private_dir' => " . var_export($private, true) . ", 'trusted_origin' => 'https://example.test', 'storage' => 'json'];");
+    chmod($root . '/config/local.php', 0600);
+    $json = new JsonStore($private, $root . '/public');
+    $json->update('demo', 'users', static fn (): array => [['id' => 'admin-1', 'username' => 'admin', 'role' => 'admin', 'active' => true]]);
+    $lock = new OperationLock($private, 100);
+    $backups = new BackupService($json, $private, $lock);
+    (new StorageMigration($root, $private, 'demo', $json, $backups, $lock))->toSqlite();
+    $config = require $root . '/config/local.php';
+    check($config['storage'] === 'sqlite' && count($backups->all()) === 1);
+    check((new SqliteStore($private, $root . '/public'))->read('demo', 'users')[0]['id'] === 'admin-1');
+    check($json->read('demo', 'users')[0]['id'] === 'admin-1');
+});
+
+test('failed SQLite migration leaves JSON active and untouched', function () use ($temp): void {
+    $root = $temp . '/migration-fail-root';
+    $private = $temp . '/migration-fail-private';
+    mkdir($root . '/config', 0700, true);
+    mkdir($root . '/public', 0700);
+    mkdir($private, 0700);
+    file_put_contents($root . '/config/local.php', "<?php return ['private_dir' => " . var_export($private, true) . ", 'trusted_origin' => 'https://example.test', 'storage' => 'json'];");
+    chmod($root . '/config/local.php', 0600);
+    $json = new JsonStore($private, $root . '/public');
+    $json->update('demo', 'users', static fn (): array => [['id' => 'keep']]);
+    file_put_contents($private . '/4-demo-settings.json', '{broken');
+    $lock = new OperationLock($private, 100);
+    $backups = new BackupService($json, $private, $lock);
+    rejects(fn () => (new StorageMigration($root, $private, 'demo', $json, $backups, $lock))->toSqlite(), JsonException::class);
+    check((require $root . '/config/local.php')['storage'] === 'json');
+    check($json->read('demo', 'users')[0]['id'] === 'keep');
+    check(file_get_contents($private . '/4-demo-settings.json') === '{broken');
 });
