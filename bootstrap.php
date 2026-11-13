@@ -5,6 +5,8 @@ if (PHP_VERSION_ID < 80300) {
     throw new RuntimeException('ONE Engine requires PHP 8.3+.');
 }
 
+defined('ONE_ENGINE_ROOT') || define('ONE_ENGINE_ROOT', __DIR__);
+
 spl_autoload_register(static function (string $class): void {
     $prefix = 'OneEngine\\';
     if (!str_starts_with($class, $prefix)) {

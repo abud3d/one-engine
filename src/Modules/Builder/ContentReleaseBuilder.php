@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace OneEngine\Modules\Builder;
 
+use OneEngine\Core\EngineVersion;
+
 use OneEngine\Modules\Content\SiteContent;
 use OneEngine\Modules\Runtime\{CmsRenderer, Renderer, Site};
 
@@ -37,7 +39,7 @@ final readonly class ContentReleaseBuilder
                 $this->write($stage, 'p/' . $slug . '/index.html', $html);
                 $urls[] = rtrim($site->baseUrl, '/') . '/p/' . $slug;
             }
-            $home = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . Renderer::escape($site->title) . '</title><meta name="description" content="' . Renderer::escape($site->description) . '"><link rel="canonical" href="' . Renderer::escape($site->canonical()) . '"><link rel="stylesheet" href="assets/app.css"></head><body><main><h1>' . Renderer::escape($site->title) . '</h1><ul>' . $links . '</ul></main></body></html>';
+            $home = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . Renderer::escape($site->title) . '</title><meta name="description" content="' . Renderer::escape($site->description) . '"><link rel="canonical" href="' . Renderer::escape($site->canonical()) . '"><link rel="stylesheet" href="assets/app.css"></head><body><main><h1>' . Renderer::escape($site->title) . '</h1><ul>' . $links . '</ul></main><footer><span dir="ltr">' . Renderer::escape(EngineVersion::current()->label()) . '</span></footer></body></html>';
             $this->write($stage, 'index.html', $home);
             $this->write($stage, 'assets/app.css', (string) file_get_contents($this->projectRoot . '/public/assets/app.css'));
             $this->write($stage, 'robots.txt', $site->indexable ? "User-agent: *\nAllow: /\nSitemap: " . rtrim($site->baseUrl, '/') . "/sitemap.xml\n" : "User-agent: *\nDisallow: /\n");
@@ -52,7 +54,7 @@ final readonly class ContentReleaseBuilder
                 $files[$relative] = hash_file('sha256', $file->getPathname());
             }
             ksort($files);
-            $this->write($stage, 'release.json', json_encode(['schema' => 1, 'engine' => '0.2.0', 'site_id' => $site->id, 'mode' => 'static', 'central_required' => false, 'public_pages' => count($pages), 'files' => $files], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+            $this->write($stage, 'release.json', json_encode(['schema' => 1, 'engine' => EngineVersion::current()->version, 'site_id' => $site->id, 'mode' => 'static', 'central_required' => false, 'public_pages' => count($pages), 'files' => $files], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             if (!rename($stage, $destination)) {
                 throw new \RuntimeException('Cannot promote export.');
             }

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace OneEngine\Modules\Builder;
 
+use OneEngine\Core\EngineVersion;
+
 final readonly class CmsPackageBuilder
 {
     public function __construct(private string $projectRoot)
@@ -21,7 +23,7 @@ final readonly class CmsPackageBuilder
             throw new \RuntimeException('Cannot create CMS package staging directory.');
         }
         try {
-            foreach (['bootstrap.php', 'NOTICE.md', 'config/php.ini', 'config/site.php',
+            foreach (['bootstrap.php', 'NOTICE.md', 'config/php.ini', 'config/site.php', 'config/version.php',
                 'public/index.php', 'public/admin.php', 'public/router.php', 'public/.htaccess',
                 'public/assets/app.css', 'public/assets/admin.css', 'public/assets/admin.js',
                 'bin/one', 'bin/one-admin', 'bin/one-install'] as $file) {
@@ -43,7 +45,7 @@ final readonly class CmsPackageBuilder
             }
             ksort($files);
             $this->write($stage, 'package.json', json_encode([
-                'schema' => 1, 'product' => 'ONE Engine CMS', 'engine' => '0.2.0',
+                'schema' => 1, 'product' => 'ONE Engine CMS', 'engine' => EngineVersion::current()->version,
                 'php' => '>=8.3', 'document_root' => 'public', 'private_data_included' => false,
                 'credentials_included' => false, 'files' => $files,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
@@ -110,7 +112,7 @@ final readonly class CmsPackageBuilder
         return <<<'MD'
 # ONE Engine CMS — installation
 
-Requirements: PHP 8.3+, JSON and sessions. No Node, Composer or database is required. Configure the hosting document root as the extracted `one-engine-cms/public` directory; never expose the package root.
+Requirements: PHP 8.3+, JSON and sessions. No Node, Composer or database is required. Confirm the installed version with `php bin/one version`. Configure the hosting document root as the extracted `one-engine-cms/public` directory; never expose the package root.
 
 Create the first administrator from a terminal or hosting control-panel terminal. Choose a new private directory outside `public` and a password of at least 12 bytes:
 

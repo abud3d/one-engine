@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace OneEngine\Modules\Builder;
 
+use OneEngine\Core\EngineVersion;
+
 use OneEngine\Modules\Runtime\{Application, Mode, Renderer, Site};
 use OneEngine\Security\Headers;
 
@@ -34,7 +36,7 @@ final readonly class ReleaseBuilder
                 $this->write($stage, 'public/index.html', $renderer->home($site, Application::demoPage($site)));
             }
             if ($site->mode !== Mode::Static) {
-                $files = ['bootstrap.php', 'config/php.ini', 'public/index.php', 'public/router.php', 'src/Security/Headers.php'];
+                $files = ['bootstrap.php', 'config/php.ini', 'config/version.php', 'public/index.php', 'public/router.php', 'src/Security/Headers.php', 'src/Core/EngineVersion.php'];
                 foreach (['Identifier', 'Action', 'ContentObject', 'Principal', 'Grant', 'PermissionEngine'] as $class) {
                     $files[] = 'src/Core/' . $class . '.php';
                 }
@@ -56,7 +58,7 @@ final readonly class ReleaseBuilder
             }
             ksort($files);
             $this->write($stage, 'release.json', json_encode([
-                'schema' => 1, 'engine' => '0.1.0', 'site_id' => $site->id, 'mode' => $site->mode->value,
+                'schema' => 1, 'engine' => EngineVersion::current()->version, 'site_id' => $site->id, 'mode' => $site->mode->value,
                 'document_root' => 'public', 'central_required' => false, 'files' => $files,
             ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
             // Do not replace an existing release, even if another build won the race.
