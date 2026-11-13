@@ -23,7 +23,7 @@ final readonly class CmsPackageBuilder
         try {
             foreach (['bootstrap.php', 'NOTICE.md', 'config/php.ini', 'config/site.php',
                 'public/index.php', 'public/admin.php', 'public/router.php', 'public/.htaccess',
-                'public/assets/app.css', 'public/assets/admin.css',
+                'public/assets/app.css', 'public/assets/admin.css', 'public/assets/admin.js',
                 'bin/one', 'bin/one-admin', 'bin/one-install'] as $file) {
                 $this->copy($stage, $file);
             }

@@ -20,7 +20,7 @@ for path in (root / 'public').rglob('*'):
         if rel.startswith('community/'):
             assert re.fullmatch(r'community/(?:[a-z]+\.html|api/community\.php|assets/[a-z][a-z0-9-]*\.(?:css|js))', rel), path
         else:
-            assert path.suffix in {'.php', '.css'} or rel in {'assets/preview-shell.js', '.htaccess'}, path
+            assert path.suffix in {'.php', '.css'} or rel in {'assets/preview-shell.js', 'assets/admin.js', '.htaccess'}, path
         assert not path.is_symlink(), path
 
 for name in ['ARCHITECTURE', 'PERMISSIONS', 'STORAGE', 'MIGRATION', 'SOURCE_AUDIT', 'OPERATIONS']:

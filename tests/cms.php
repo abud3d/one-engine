@@ -67,6 +67,32 @@ test('sections pages blocks and menus persist with isolation and visibility', fu
     rejects(fn () => $content->delete('demo', $editor, 'cms_pages', 'welcome'), DomainException::class);
 });
 
+test('templates and media library drive page layout without JSON editing', function () use ($temp): void {
+    $private = $temp . '/cms-design';
+    mkdir($private, 0700);
+    $content = new SiteContent(new JsonStore($private, dirname(__DIR__) . '/public'));
+    $admin = ['id' => 'admin-1', 'role' => 'admin'];
+    $content->saveTemplate('demo', $admin, ['id' => 'feature', 'title' => 'قالب مميز', 'description' => '', 'layout' => 'three', 'sidebar' => '1']);
+    $content->saveMedia('demo', $admin, ['id' => 'hero', 'title' => 'الصورة الرئيسية', 'alt' => 'وصف الصورة', 'url' => 'https://cdn.example.test/hero.webp']);
+    $content->savePage('demo', $admin, ['id' => 'designed', 'title' => 'صفحة مصممة', 'description' => '', 'body' => '', 'section_id' => '', 'template_id' => 'feature', 'state' => 'published', 'visibility' => 'public', 'layout' => 'one', 'blocks' => [['type' => 'image', 'content' => 'https://cdn.example.test/hero.webp', 'visibility' => 'public', 'column' => 2]]]);
+    $page = $content->findPage('demo', 'designed');
+    check($page !== null && $page['layout'] === 'three' && $page['show_sidebar'] === true);
+    rejects(fn () => $content->delete('demo', $admin, 'templates', 'feature'), DomainException::class);
+    rejects(fn () => $content->delete('demo', $admin, 'media', 'hero'), DomainException::class);
+    rejects(fn () => $content->saveMedia('demo', $admin, ['id' => 'unsafe', 'title' => 'Unsafe', 'url' => 'http://example.test/a.png']), InvalidArgumentException::class);
+});
+
+test('identity administration changes roles and preserves a final active administrator', function () use ($temp): void {
+    $private = $temp . '/cms-user-admin';
+    mkdir($private, 0700);
+    $identity = new IdentityService(new JsonStore($private, dirname(__DIR__) . '/public'));
+    $identity->create('demo', 'admin-one', 'admin.one', 'administrator password', 'admin');
+    $identity->create('demo', 'user-one', 'user.one', 'member password value', 'member');
+    $identity->update('demo', 'user-one', 'editor', true, 'new editor password');
+    check($identity->authenticate('demo', 'user.one', 'new editor password')['role'] === 'editor');
+    rejects(fn () => $identity->update('demo', 'admin-one', 'member', true), DomainException::class);
+});
+
 test('public CMS route escapes content and hides drafts private blocks and foreign sites', function () use ($temp): void {
     $private = $temp . '/cms-runtime';
     mkdir($private, 0700);
@@ -144,11 +170,16 @@ test('administrator browser flow logs in creates publishes and exposes only publ
         }
         [$dashboard] = $request($base . '/admin', 'GET', [], $cookie);
         check(str_contains($dashboard, 'لوحة الموقع') && preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token) === 1);
+        [$editor, $headers] = $request($base . '/admin?view=pages', 'GET', [], $cookie);
+        check(str_contains($editor, 'name="block_type[]"') && !str_contains($editor, 'name="blocks"'));
+        check(str_contains(implode("\n", $headers), "form-action 'self'") && str_contains(implode("\n", $headers), "script-src 'self'"));
+        [$script, $headers] = $request($base . '/assets/admin.js');
+        check(str_contains(implode("\n", $headers), '200 OK') && str_contains($script, 'data-add-block'));
         [, $headers] = $request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'section', 'id' => 'news', 'title' => 'الأخبار', 'description' => '', 'layout' => 'one', 'visibility' => 'public', 'state' => 'published'], $cookie);
         check(str_contains(implode("\n", $headers), '200 OK'));
         [$dashboard] = $request($base . '/admin', 'GET', [], $cookie);
         preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token);
-        $page = ['csrf' => $token[1], 'action' => 'page', 'id' => 'browser-page', 'title' => 'صفحة المتصفح', 'description' => 'وصف', 'body' => 'محتوى فعلي', 'section_id' => 'news', 'blocks' => '[{"type":"heading","content":"بلوك العنوان","visibility":"public","column":1}]', 'allowed_users' => '', 'allowed_editors' => '', 'layout' => 'two', 'visibility' => 'public', 'state' => 'draft'];
+        $page = ['csrf' => $token[1], 'action' => 'page', 'id' => 'browser-page', 'title' => 'صفحة المتصفح', 'description' => 'وصف', 'body' => 'محتوى فعلي', 'section_id' => 'news', 'block_type' => ['heading'], 'block_content' => ['بلوك العنوان'], 'block_visibility' => ['public'], 'block_column' => ['1'], 'allowed_users' => [], 'allowed_editors' => [], 'layout' => 'two', 'visibility' => 'public', 'state' => 'draft'];
         [$saved, $headers] = $request($base . '/admin', 'POST', $page, $cookie);
         check(str_contains(implode("\n", $headers), '200 OK') && str_contains($saved, 'تم الحفظ'));
         [$preview, $headers] = $request($base . '/preview/browser-page', 'GET', [], $cookie);

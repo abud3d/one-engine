@@ -44,6 +44,67 @@ final readonly class IdentityService
         });
     }
 
+    public function update(string $siteId, string $id, string $role, bool $active, string $password = ''): void
+    {
+        Identifier::check($siteId);
+        Identifier::check($id);
+        if (!in_array($role, self::ROLES, true)) {
+            throw new \InvalidArgumentException('Invalid role.');
+        }
+        $hash = null;
+        if ($password !== '') {
+            self::validatePassword($password);
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+            if (!is_string($hash)) {
+                throw new \RuntimeException('Password hashing failed.');
+            }
+        }
+        $this->store->update($siteId, 'users', static function (array $users) use ($id, $role, $active, $hash): array {
+            if (!array_is_list($users)) {
+                throw new \UnexpectedValueException('Invalid user index.');
+            }
+            $found = false;
+            $activeAdmins = 0;
+            foreach ($users as $user) {
+                if (is_array($user) && ($user['role'] ?? null) === 'admin' && ($user['active'] ?? false) === true) {
+                    $activeAdmins++;
+                }
+            }
+            foreach ($users as &$user) {
+                if (!is_array($user) || ($user['id'] ?? null) !== $id) {
+                    continue;
+                }
+                if (($user['role'] ?? null) === 'admin' && ($user['active'] ?? false) === true
+                    && ($role !== 'admin' || !$active) && $activeAdmins <= 1) {
+                    throw new \DomainException('Cannot disable the final administrator.');
+                }
+                $user['role'] = $role;
+                $user['active'] = $active;
+                if ($hash !== null) {
+                    $user['password_hash'] = $hash;
+                    $user['session_version'] = (int) ($user['session_version'] ?? 0) + 1;
+                }
+                $found = true;
+                break;
+            }
+            unset($user);
+            if (!$found) {
+                throw new \DomainException('User not found.');
+            }
+            return $users;
+        });
+    }
+
+    /** @return array<string,list<string>> */
+    public static function roleCapabilities(): array
+    {
+        return [
+            'admin' => ['read', 'create', 'update', 'publish', 'delete', 'manage_users'],
+            'editor' => ['read', 'create', 'update', 'publish'],
+            'member' => ['read_assigned'],
+        ];
+    }
+
     /** Import a reviewed, offline ARBNT users export. Never reads production storage itself. */
     public function importArbnt(string $siteId, array $rows): int
     {
