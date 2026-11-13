@@ -173,7 +173,7 @@ test('administrator browser flow logs in creates publishes and exposes only publ
         }
         [$dashboard] = $request($base . '/admin', 'GET', [], $cookie);
         check(str_contains($dashboard, \OneEngine\Core\EngineVersion::current()->label()));
-        check(str_contains($dashboard, 'ONE-030-001') && str_contains($dashboard, 'JSON'));
+        check(str_contains($dashboard, 'ONE-040-001') && str_contains($dashboard, 'JSON'));
         check(str_contains($dashboard, 'لوحة الموقع') && preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token) === 1);
         [$editor, $headers] = $request($base . '/admin?view=pages', 'GET', [], $cookie);
         check(str_contains($editor, 'name="block_type[]"') && !str_contains($editor, 'name="blocks"'));

@@ -10,7 +10,8 @@ use OneEngine\Modules\Identity\{IdentityService, SessionGuard};
 use OneEngine\Modules\Runtime\Site;
 use OneEngine\Security\Headers;
 use OneEngine\Security\OriginGuard;
-use OneEngine\Storage\JsonStore;
+use OneEngine\Storage\StoreFactory;
+use OneEngine\Modules\CentralManagement\StorageMigration;
 
 $https = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' && $_SERVER['HTTPS'] !== '';
 foreach (Headers::defaults($https) as $name => $value) {
@@ -32,7 +33,8 @@ try {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') OriginGuard::requireAllowed($trustedOrigin, $_SERVER);
     SessionGuard::start($https || $trustedOrigin !== null);
     $site = Site::fromArray(require $root . '/config/site.php');
-    $store = new JsonStore($private, __DIR__);
+    $storageType = \OneEngine\Modules\Runtime\LocalConfiguration::storageType($root);
+    $store = StoreFactory::create($storageType, $private, __DIR__);
     $identity = new IdentityService($store);
     $actor = SessionGuard::actor($site->id);
     if ($actor !== null) {
@@ -40,7 +42,9 @@ try {
         if ($validated === null) SessionGuard::invalidate(); else SessionGuard::refresh($validated);
     }
     $lock = new OperationLock($private);
-    echo (new AdminApplication($site->id, $identity, new SiteContent($store), new AuditLog($store, $lock), new BackupService($store, $private, $lock), $lock, $site->toArray()))
+    $backups = new BackupService($store, $private, $lock);
+    $migration = new StorageMigration($root, $private, $site->id, $store, $backups, $lock);
+    echo (new AdminApplication($site->id, $identity, new SiteContent($store), new AuditLog($store, $lock), $backups, $lock, $site->toArray(), $migration, $storageType, $private))
         ->run($_SERVER['REQUEST_METHOD'] ?? 'GET', '/admin', $_POST, $_GET);
 } catch (Throwable $error) {
     error_log('ONE admin failed: ' . $error::class);

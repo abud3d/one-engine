@@ -36,4 +36,12 @@ final class LocalConfiguration
         $origin = $config['trusted_origin'] ?? null;
         return is_string($origin) && $origin !== '' ? $origin : null;
     }
+
+    public static function storageType(string $projectRoot): string
+    {
+        $config = self::read($projectRoot);
+        $type = $config['storage'] ?? 'json';
+        if (!is_string($type) || !in_array($type, ['json', 'sqlite'], true)) throw new \UnexpectedValueException('Invalid storage type.');
+        return $type;
+    }
 }

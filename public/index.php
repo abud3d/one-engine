@@ -17,7 +17,7 @@ try {
     $actor = null;
     $private = \OneEngine\Modules\Runtime\LocalConfiguration::privateDirectory(dirname(__DIR__));
     if ($private !== null) {
-        $store = new \OneEngine\Storage\JsonStore($private, __DIR__);
+        $store = \OneEngine\Storage\StoreFactory::create(\OneEngine\Modules\Runtime\LocalConfiguration::storageType(dirname(__DIR__)), $private, __DIR__);
         $pages = new \OneEngine\Modules\Runtime\PageCatalog($store);
         $community = new \OneEngine\Modules\Runtime\CommunityCatalog($store);
         $cms = new \OneEngine\Modules\Content\SiteContent($store);

@@ -49,30 +49,18 @@ try {
     $zip->close();
 }
 $root = $work . '/one-engine-cms';
-$private = $work . '/private-data';
 requireCheck(!is_dir($root . '/private') && !is_file($root . '/config/local.php'), 'Archive contains private state.');
 $manifest = json_decode((string) file_get_contents($root . '/package.json'), true, 32, JSON_THROW_ON_ERROR);
 $version = require $root . '/config/version.php';
 requireCheck(($manifest['engine'] ?? null) === ($version['version'] ?? null), 'Package and engine versions differ.');
 $password = 'acceptance password 2026';
-$command = [PHP_BINARY, $root . '/bin/one-install', $private, 'admin.cms', 'https://cms.example.test'];
-$process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root, array_merge(getenv(), ['ONE_ADMIN_PASSWORD' => $password]));
-requireCheck(is_resource($process), 'Cannot run installer.');
-fclose($pipes[0]);
-$installOutput = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
-fclose($pipes[1]);
-fclose($pipes[2]);
-requireCheck(proc_close($process) === 0, 'Installer failed: ' . $installOutput);
-requireCheck(is_file($root . '/config/local.php') && is_dir($private), 'Installer did not create local state.');
-requireCheck((fileperms($root . '/config/local.php') & 0777) === 0600, 'Local config permissions are unsafe.');
-requireCheck((fileperms($private) & 0777) === 0700, 'Private directory permissions are unsafe.');
 
 $socket = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $errorMessage);
 requireCheck(is_resource($socket), $errorMessage);
 $address = stream_socket_get_name($socket, false);
 fclose($socket);
 $server = proc_open([PHP_BINARY, '-c', $root . '/config/php.ini', '-S', $address, '-t', $root . '/public', $root . '/public/router.php'],
-    [0 => ['pipe', 'r'], 1 => ['file', $work . '/server.log', 'a'], 2 => ['file', $work . '/server.log', 'a']], $serverPipes, $root);
+    [0 => ['pipe', 'r'], 1 => ['file', $work . '/server.log', 'a'], 2 => ['file', $work . '/server.log', 'a']], $serverPipes, $root, array_merge(getenv(), ['HTTPS' => 'on']));
 requireCheck(is_resource($server), 'Cannot start packaged CMS.');
 fclose($serverPipes[0]);
 try {
@@ -93,6 +81,19 @@ try {
     }
     requireCheck($ready, 'Packaged CMS server did not start.');
     $base = 'http://' . $address;
+    [$setup, $headers] = request($base . '/setup');
+    requireCheck(str_contains($setup, 'ONE Engine') && str_contains($setup, 'v' . $version['version']) && str_contains($setup, (string) $version['build']), 'Setup page or version is missing.');
+    requireCheck(preg_match('/name="csrf" value="([a-f0-9]{64})"/', $setup, $setupToken) === 1, 'Setup CSRF missing.');
+    requireCheck(preg_match('/Set-Cookie:\s*(ONESETUP=[^;]+)/i', implode("\n", $headers), $setupCookie) === 1, 'Setup session cookie missing.');
+    [$installed, $headers] = request($base . '/setup', 'POST', ['csrf' => $setupToken[1], 'site_name' => 'Installed CMS', 'site_url' => 'https://cms.example.test', 'language' => 'ar', 'username' => 'admin.cms', 'email' => 'admin@example.test', 'password' => $password, 'password_confirm' => $password], $setupCookie[1]);
+    requireCheck(str_contains($installed, 'تم تثبيت ONE Engine بنجاح'), 'Browser installation failed.');
+    requireCheck(is_file($root . '/config/local.php'), 'Web installer did not create local configuration.');
+    $local = require $root . '/config/local.php';
+    $private = (string) ($local['private_dir'] ?? '');
+    requireCheck(($local['storage'] ?? null) === 'json' && is_dir($private), 'JSON storage was not configured.');
+    requireCheck((fileperms($root . '/config/local.php') & 0777) === 0600 && (fileperms($private) & 0777) === 0700, 'Installed permissions are unsafe.');
+    [$lockedSetup] = request($base . '/setup');
+    requireCheck(str_contains($lockedSetup, 'مثبت بالفعل') && !str_contains($lockedSetup, 'name="password"'), 'Setup was not locked after installation.');
     [$login, $headers] = request($base . '/admin');
     requireCheck(preg_match('/name="csrf" value="([a-f0-9]{64})"/', $login, $token) === 1, 'Login CSRF missing.');
     requireCheck(preg_match('/Set-Cookie:\s*(ONESESSID=[^;]+)/i', implode("\n", $headers), $cookieMatch) === 1, 'Session cookie missing.');
@@ -146,6 +147,17 @@ try {
     requireCheck(str_contains($backups, '.json'), 'Packaged backup is not listed.');
     [$audit] = request($base . '/admin?view=audit', 'GET', [], $cookie);
     requireCheck(str_contains($audit, 'content.page') && str_contains($audit, 'backup.created'), 'Packaged audit log missing events.');
+    [$storagePage] = request($base . '/admin?view=storage', 'GET', [], $cookie);
+    requireCheck(str_contains($storagePage, 'JSON') && str_contains($storagePage, 'الترقية إلى SQLite'), 'Storage management is unavailable.');
+    preg_match('/name="csrf" value="([a-f0-9]{64})"/', $storagePage, $token);
+    [$upgraded] = request($base . '/admin', 'POST', ['csrf' => $token[1], 'action' => 'storage_upgrade'], $cookie);
+    requireCheck(str_contains($upgraded, 'اكتملت الترقية إلى SQLite'), 'SQLite migration failed.');
+    $local = require $root . '/config/local.php';
+    requireCheck(($local['storage'] ?? null) === 'sqlite' && is_file($private . '/documents.sqlite'), 'SQLite was not activated atomically.');
+    [$afterUpgrade, $headers] = request($base . '/p/installed-page');
+    requireCheck(str_contains(implode("\n", $headers), '200 OK') && str_contains($afterUpgrade, 'Created inside packaged CMS'), 'Content was not preserved after SQLite migration.');
+    [$storagePage] = request($base . '/admin?view=storage', 'GET', [], $cookie);
+    requireCheck(str_contains($storagePage, 'SQLITE') && str_contains($storagePage, 'المخزن النشط'), 'SQLite status is not visible.');
 } finally {
     proc_terminate($server);
     proc_close($server);
@@ -159,4 +171,4 @@ $exportOutput = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
 fclose($pipes[1]);
 fclose($pipes[2]);
 requireCheck(proc_close($process) === 0 && is_file($export . '/p/installed-page/index.html'), 'Packaged export failed: ' . $exportOutput);
-echo "Packaged CMS install, login, draft preview, publish and export passed.\n";
+echo "Packaged CMS browser install, login, publish, SQLite migration and export passed.\n";

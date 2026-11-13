@@ -8,7 +8,7 @@ use OneEngine\Storage\DocumentStore;
 
 final readonly class BackupService
 {
-    private const KEYS = ['users', 'sections', 'cms_pages', 'menus', 'templates', 'media', 'settings', 'audit'];
+    private const KEYS = ['users', 'sections', 'cms_pages', 'menus', 'templates', 'media', 'settings', 'audit', 'pages', 'community-posts', 'login_attempts'];
     private string $directory;
 
     public function __construct(private DocumentStore $store, string $privateDirectory, private OperationLock $lock)

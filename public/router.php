@@ -8,6 +8,16 @@ if ($path === '/admin' || $path === '/admin/') {
     require __DIR__ . '/admin.php';
     return;
 }
+if ($path === '/setup' || $path === '/setup/') {
+    require __DIR__ . '/setup.php';
+    return;
+}
+if ($path === '/assets/setup.css') {
+    header('Content-Type: text/css; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    readfile(__DIR__ . '/assets/setup.css');
+    return;
+}
 if ($path === '/assets/admin.css') {
     header('Content-Type: text/css; charset=utf-8');
     header('X-Content-Type-Options: nosniff');

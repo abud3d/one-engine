@@ -24,8 +24,8 @@ final readonly class CmsPackageBuilder
         }
         try {
             foreach (['bootstrap.php', 'NOTICE.md', 'config/php.ini', 'config/site.php', 'config/version.php',
-                'public/index.php', 'public/admin.php', 'public/router.php', 'public/.htaccess',
-                'public/assets/app.css', 'public/assets/admin.css', 'public/assets/admin.js',
+                'public/index.php', 'public/admin.php', 'public/setup.php', 'public/router.php', 'public/.htaccess',
+                'public/assets/app.css', 'public/assets/admin.css', 'public/assets/admin.js', 'public/assets/setup.css',
                 'bin/one', 'bin/one-admin', 'bin/one-install'] as $file) {
                 $this->copy($stage, $file);
             }
@@ -112,9 +112,11 @@ final readonly class CmsPackageBuilder
         return <<<'MD'
 # ONE Engine CMS — installation
 
-Requirements: PHP 8.3+, JSON and sessions. No Node, Composer or database is required. Confirm the installed version with `php bin/one version`. Configure the hosting document root as the extracted `one-engine-cms/public` directory; never expose the package root.
+Requirements: PHP 8.3+, JSON and sessions. No Node, Composer, SSH or database is required. Configure the hosting document root as the extracted `one-engine-cms/public` directory; never expose the package root.
 
-Create the first administrator from a terminal or hosting control-panel terminal. Choose a new private directory outside `public` and a password of at least 12 bytes:
+After extraction, open `https://YOUR-DOMAIN/setup`. The Arabic installer checks the environment, creates protected JSON storage outside the web root, creates the first administrator and locks itself. Sign in at `/admin`. When PDO_SQLite is available, an administrator can later open **الإعدادات ← التخزين** and approve a verified migration to SQLite.
+
+The following CLI method remains optional for automated deployments only:
 
 ```sh
 cd /path/to/one-engine-cms
