@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace OneEngine\Modules\Runtime;
 
 use OneEngine\Modules\Identity\Access;
-use OneEngine\Core\Action;
+use OneEngine\Core\{Action, EngineVersion};
 
 final class CmsRenderer
 {
@@ -27,7 +27,7 @@ final class CmsRenderer
         }
         $robots = $site->indexable && ($page['visibility'] ?? '') === 'public' ? 'index,follow' : 'noindex,nofollow';
         $sidebar = !empty($page['show_sidebar']) ? '<aside>' . $this->menus($menus, 'sidebar', $actor, $site->id) . '</aside>' : '';
-        return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $e((string) $page['title']) . ' · ' . $e($site->title) . '</title><meta name="description" content="' . $e((string) ($page['description'] ?? '')) . '"><meta name="robots" content="' . $robots . '"><link rel="canonical" href="' . $e(rtrim($site->baseUrl, '/') . '/p/' . $page['id']) . '"><link rel="stylesheet" href="/assets/app.css"></head><body><header><a class="brand" href="/">ONE Engine</a><nav>' . $this->menus($menus, 'header', $actor, $site->id) . '</nav></header><main><h1>' . $e((string) $page['title']) . '</h1><div class="cms-layout layout-' . $e((string) ($page['layout'] ?? 'one')) . '">' . $sidebar . '<div><p>' . nl2br($e((string) ($page['body'] ?? ''))) . '</p><section class="blocks">' . $blocks . '</section></div></div></main><footer>' . $this->menus($menus, 'footer', $actor, $site->id) . '</footer></body></html>';
+        return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $e((string) $page['title']) . ' · ' . $e($site->title) . '</title><meta name="description" content="' . $e((string) ($page['description'] ?? '')) . '"><meta name="robots" content="' . $robots . '"><link rel="canonical" href="' . $e(rtrim($site->baseUrl, '/') . '/p/' . $page['id']) . '"><link rel="stylesheet" href="/assets/app.css"></head><body><header><a class="brand" href="/">ONE Engine</a><nav>' . $this->menus($menus, 'header', $actor, $site->id) . '</nav></header><main><h1>' . $e((string) $page['title']) . '</h1><div class="cms-layout layout-' . $e((string) ($page['layout'] ?? 'one')) . '">' . $sidebar . '<div><p>' . nl2br($e((string) ($page['body'] ?? ''))) . '</p><section class="blocks">' . $blocks . '</section></div></div></main><footer>' . $this->menus($menus, 'footer', $actor, $site->id) . '<span dir="ltr">' . $e(EngineVersion::current()->label()) . '</span></footer></body></html>';
     }
 
     private function menus(array $menus, string $position, ?array $actor, string $siteId): string

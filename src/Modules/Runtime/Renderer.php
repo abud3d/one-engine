@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace OneEngine\Modules\Runtime;
 
-use OneEngine\Core\{Action, ContentObject, PermissionEngine, Principal};
+use OneEngine\Core\{Action, ContentObject, EngineVersion, PermissionEngine, Principal};
 
 final class Renderer
 {
@@ -32,7 +32,7 @@ final class Renderer
 <article><span class="number">02</span><h2>التشغيل</h2><p>عرض صفحات الموقع دون اتصال إلزامي بالمركز.</p></article>
 <article><span class="number">03</span><h2>الإدارة المركزية</h2><p>حدود معمارية وسجل تجريبي؛ إدارة النشر تأتي في مرحلة لاحقة.</p></article>
 </section><div class="actions">' . $health . '<span>نموذج تأسيسي ببيانات تجريبية فقط.</span></div>
-</main><footer><span dir="ltr">ONE Engine · 0.1.0</span><span>PHP أصلي · HTML/CSS</span></footer></body></html>';
+</main><footer><span dir="ltr">' . $e(EngineVersion::current()->label()) . '</span><span>PHP أصلي · HTML/CSS</span></footer></body></html>';
     }
 
     public static function escape(string $text): string

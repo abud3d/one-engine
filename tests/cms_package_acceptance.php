@@ -51,6 +51,9 @@ try {
 $root = $work . '/one-engine-cms';
 $private = $work . '/private-data';
 requireCheck(!is_dir($root . '/private') && !is_file($root . '/config/local.php'), 'Archive contains private state.');
+$manifest = json_decode((string) file_get_contents($root . '/package.json'), true, 32, JSON_THROW_ON_ERROR);
+$version = require $root . '/config/version.php';
+requireCheck(($manifest['engine'] ?? null) === ($version['version'] ?? null), 'Package and engine versions differ.');
 $password = 'acceptance password 2026';
 $command = [PHP_BINARY, $root . '/bin/one-install', $private, 'admin.cms', 'https://cms.example.test'];
 $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root, array_merge(getenv(), ['ONE_ADMIN_PASSWORD' => $password]));
@@ -102,6 +105,7 @@ try {
         $cookie = $rotated[1];
     }
     [$dashboard] = request($base . '/admin', 'GET', [], $cookie);
+    requireCheck(str_contains($dashboard, 'ONE Engine v' . $version['version']) && str_contains($dashboard, (string) $version['build']), 'Admin version information missing.');
     requireCheck(preg_match('/name="csrf" value="([a-f0-9]{64})"/', $dashboard, $token) === 1, 'Dashboard CSRF missing.');
     [$editor] = request($base . '/admin?view=pages', 'GET', [], $cookie);
     requireCheck(str_contains($editor, 'name="block_type[]"') && !str_contains($editor, 'name="blocks"'), 'Visual block editor missing.');

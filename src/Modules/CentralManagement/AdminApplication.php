@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace OneEngine\Modules\CentralManagement;
 
-use OneEngine\Core\Action;
+use OneEngine\Core\{Action, EngineVersion};
 use OneEngine\Modules\Content\SiteContent;
 use OneEngine\Modules\Identity\{Access, IdentityService, LoginThrottle, SessionGuard};
 use OneEngine\Modules\Runtime\Renderer;
@@ -160,7 +160,8 @@ final readonly class AdminApplication
         $sections = $this->content->list($this->siteId, 'sections');
         $pages = $this->content->list($this->siteId, 'cms_pages');
         $published = count(array_filter($pages, static fn (array $p): bool => ($p['state'] ?? '') === 'published'));
-        return '<section class="stats"><article><span>الأقسام</span><b>' . count($sections) . '</b></article><article><span>الصفحات</span><b>' . count($pages) . '</b></article><article><span>المنشور</span><b>' . $published . '</b></article><article><span>المسودات</span><b>' . (count($pages) - $published) . '</b></article></section><section><h2>ابدأ العمل</h2><div class="quick-actions"><a class="button" href="/admin?view=pages">إنشاء صفحة</a><a class="secondary" href="/admin?view=sections">إدارة الأقسام</a><a class="secondary" href="/admin?view=templates">إدارة القوالب</a></div></section>';
+        $engine = EngineVersion::current();
+        return '<section class="stats"><article><span>الأقسام</span><b>' . count($sections) . '</b></article><article><span>الصفحات</span><b>' . count($pages) . '</b></article><article><span>المنشور</span><b>' . $published . '</b></article><article><span>المسودات</span><b>' . (count($pages) - $published) . '</b></article></section><section><h2>ابدأ العمل</h2><div class="quick-actions"><a class="button" href="/admin?view=pages">إنشاء صفحة</a><a class="secondary" href="/admin?view=sections">إدارة الأقسام</a><a class="secondary" href="/admin?view=templates">إدارة القوالب</a></div></section><section><h2>معلومات النظام</h2><div class="stats system-info"><article><span>إصدار المحرك</span><b dir="ltr">' . self::e($engine->version) . '</b></article><article><span>رقم البناء</span><b dir="ltr">' . self::e($engine->build) . '</b></article><article><span>تاريخ البناء</span><b dir="ltr">' . self::e($engine->builtAt) . '</b></article><article><span>PHP</span><b dir="ltr">' . self::e(PHP_VERSION) . '</b></article><article><span>التخزين الفعلي</span><b>JSON</b></article></div></section>';
     }
 
     private function sections(array $query): string
@@ -363,7 +364,7 @@ final readonly class AdminApplication
 
     private function shell(string $title, string $body): string
     {
-        return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . self::e($title) . '</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>' . $body . '</body></html>';
+        return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . self::e($title) . '</title><link rel="stylesheet" href="/assets/admin.css"><script src="/assets/admin.js" defer></script></head><body>' . $body . '<footer class="admin-footer"><span dir="ltr">' . self::e(EngineVersion::current()->label()) . '</span></footer></body></html>';
     }
 
     private static function notice(string $message): string { return $message === '' ? '' : '<p class="notice" role="status">' . self::e($message) . '</p>'; }

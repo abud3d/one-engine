@@ -10,10 +10,13 @@ use OneEngine\Modules\Runtime\Site;
 use OneEngine\Modules\Builder\ContentReleaseBuilder;
 use OneEngine\Modules\Content\SiteContent;
 use OneEngine\Storage\JsonStore;
+use OneEngine\Core\EngineVersion;
 
 try {
     $config = require dirname(__DIR__) . '/config/site.php';
-    if (($argv[1] ?? '') === 'sites' && count($argv) === 2) {
+    if (($argv[1] ?? '') === 'version' && count($argv) === 2) {
+        echo json_encode(EngineVersion::current()->toArray(), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    } elseif (($argv[1] ?? '') === 'sites' && count($argv) === 2) {
         $catalog = new SiteCatalog();
         $catalog->register(Site::fromArray($config));
         echo json_encode($catalog->all(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
@@ -33,7 +36,7 @@ try {
         }
         echo "Exported public site. No deployment was performed.\n";
     } else {
-        fwrite(STDERR, "Usage:\n  php bin/one sites\n  php bin/one build static|hybrid|dynamic NEW_DIRECTORY\n  php bin/one export PRIVATE_DIR NEW_DIRECTORY [NEW.zip]\n");
+        fwrite(STDERR, "Usage:\n  php bin/one version\n  php bin/one sites\n  php bin/one build static|hybrid|dynamic NEW_DIRECTORY\n  php bin/one export PRIVATE_DIR NEW_DIRECTORY [NEW.zip]\n");
         exit(2);
     }
 } catch (Throwable $error) {

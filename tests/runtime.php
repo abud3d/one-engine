@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use OneEngine\Modules\Runtime\{Application, Mode, Renderer, Site};
+use OneEngine\Core\EngineVersion;
 use OneEngine\Modules\Builder\ReleaseBuilder;
 use OneEngine\Modules\CentralManagement\SiteCatalog;
 
@@ -9,6 +10,15 @@ function demoSite(Mode $mode = Mode::Dynamic, bool $indexable = false): Site
 {
     return new Site('demo', 'Demo site', 'Synthetic description', 'https://example.invalid', $mode, $indexable);
 }
+
+test('semantic version metadata is centralized and visible in public output', function (): void {
+    $engine = EngineVersion::current();
+    check($engine->version === '0.3.0');
+    check($engine->build === 'ONE-030-001');
+    $site = demoSite();
+    $html = (new Renderer())->home($site, Application::demoPage($site));
+    check(str_contains($html, $engine->label()));
+});
 
 test('site URLs reject credentials, non-HTTPS and injected metadata paths', function (): void {
     foreach (['http://example.invalid', 'javascript:alert(1)', 'https://a:b@example.invalid', 'https://example.invalid/path', 'https://example.invalid?x=1', "https://example.invalid\r\nX: bad"] as $url) {
@@ -62,6 +72,7 @@ foreach (Mode::cases() as $mode) {
         $builder->build(demoSite($mode), $destination);
         $manifest = json_decode(file_get_contents($destination . '/release.json'), true, flags: JSON_THROW_ON_ERROR);
         check($manifest['central_required'] === false);
+        check($manifest['engine'] === EngineVersion::current()->version);
         check($manifest['mode'] === $mode->value);
         check(is_file($destination . '/public/index.html') === ($mode !== Mode::Dynamic));
         check(is_file($destination . '/public/index.php') === ($mode !== Mode::Static));
