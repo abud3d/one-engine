@@ -10,7 +10,15 @@ use OneEngine\Modules\Runtime\Renderer;
 
 final readonly class AdminApplication
 {
-    public function __construct(private string $siteId, private IdentityService $identity, private SiteContent $content) {}
+    public function __construct(
+        private string $siteId,
+        private IdentityService $identity,
+        private SiteContent $content,
+        private ?AuditLog $audit = null,
+        private ?BackupService $backups = null,
+        private ?OperationLock $lock = null,
+        private array $siteDefaults = [],
+    ) {}
 
     public function run(string $method, string $path, array $post, array $query = []): string
     {
@@ -23,10 +31,12 @@ final readonly class AdminApplication
                 $user = $this->identity->authenticate($this->siteId, (string) ($post['username'] ?? ''), (string) ($post['password'] ?? ''));
                 if ($user === null) {
                     LoginThrottle::failure();
+                    $this->audit?->record($this->siteId, 'anonymous', 'login.failed', substr(hash('sha256', (string) ($post['username'] ?? '')), 0, 24));
                     $message = 'بيانات الدخول غير صحيحة.';
                 } else {
                     LoginThrottle::success();
                     SessionGuard::login($user, $this->siteId);
+                    $this->audit?->record($this->siteId, (string) $user['id'], 'login.success', 'admin');
                     header('Location: /admin', true, 303);
                     exit;
                 }
@@ -36,18 +46,39 @@ final readonly class AdminApplication
                 exit;
             } else {
                 $actor = $this->actor();
-                match ($action) {
-                    'section' => $this->content->saveSection($this->siteId, $actor, $post),
-                    'page' => $this->content->savePage($this->siteId, $actor, $post + ['blocks' => $this->blocks($post)]),
-                    'menu' => $this->content->saveMenu($this->siteId, $actor, $post),
-                    'template' => $this->content->saveTemplate($this->siteId, $actor, $post),
-                    'media' => $this->content->saveMedia($this->siteId, $actor, $post),
-                    'user' => $this->createUser($actor, $post),
-                    'user_update' => $this->updateUser($actor, $post),
-                    'delete' => $this->content->delete($this->siteId, $actor, (string) ($post['kind'] ?? ''), (string) ($post['id'] ?? '')),
-                    default => throw new \InvalidArgumentException('Unknown action.'),
-                };
-                $message = 'تم الحفظ بنجاح.';
+                if ($action === 'backup_create') {
+                    $this->admin($actor);
+                    if ($this->backups === null) throw new \RuntimeException('Backup service unavailable.');
+                    $name = $this->backups->create($this->siteId);
+                    $this->audit?->record($this->siteId, (string) $actor['id'], 'backup.created', $name);
+                    $message = 'تم إنشاء النسخة الاحتياطية.';
+                } elseif ($action === 'backup_restore') {
+                    $this->admin($actor);
+                    $name = (string) ($post['name'] ?? '');
+                    if ($this->backups === null) throw new \RuntimeException('Backup service unavailable.');
+                    $this->backups->restore($this->siteId, $name);
+                    $this->audit?->record($this->siteId, (string) $actor['id'], 'backup.restored', $name);
+                    $message = 'تمت الاستعادة والتحقق من سلامة النسخة.';
+                } else {
+                    $work = function () use ($action, $actor, $post): void {
+                        match ($action) {
+                            'section' => $this->content->saveSection($this->siteId, $actor, $post),
+                            'page' => $this->content->savePage($this->siteId, $actor, $post + ['blocks' => $this->blocks($post)]),
+                            'menu' => $this->content->saveMenu($this->siteId, $actor, $post),
+                            'template' => $this->content->saveTemplate($this->siteId, $actor, $post),
+                            'media' => $this->content->saveMedia($this->siteId, $actor, $post),
+                            'settings' => $this->content->saveSettings($this->siteId, $actor, $post),
+                            'user' => $this->createUser($actor, $post),
+                            'user_update' => $this->updateUser($actor, $post),
+                            'delete' => $this->content->delete($this->siteId, $actor, (string) ($post['kind'] ?? ''), (string) ($post['id'] ?? '')),
+                            default => throw new \InvalidArgumentException('Unknown action.'),
+                        };
+                        $target = (string) ($post['id'] ?? $post['kind'] ?? 'site');
+                        $this->audit?->record($this->siteId, (string) $actor['id'], 'content.' . $action, substr($target, 0, 160));
+                    };
+                    if ($this->lock === null) $work(); else $this->lock->shared($work);
+                    $message = 'تم الحفظ بنجاح.';
+                }
             }
         }
         $actor = SessionGuard::actor($this->siteId);
@@ -91,8 +122,8 @@ final readonly class AdminApplication
             return $this->shell('حساب العضو', $this->header($actor) . '<main><h1>حساب العضو</h1><p>يمكنك فتح الصفحات العامة أو المخصصة لمعرفك.</p></main>');
         }
         $view = is_string($query['view'] ?? null) ? $query['view'] : 'overview';
-        $allowed = ['overview', 'sections', 'pages', 'templates', 'menus', 'media', 'users'];
-        if (!in_array($view, $allowed, true) || ($view === 'users' && $actor['role'] !== 'admin')) {
+        $allowed = ['overview', 'sections', 'pages', 'templates', 'menus', 'media', 'users', 'settings', 'audit', 'backups'];
+        if (!in_array($view, $allowed, true) || (in_array($view, ['users', 'settings', 'audit', 'backups'], true) && $actor['role'] !== 'admin')) {
             $view = 'overview';
         }
         $content = match ($view) {
@@ -102,6 +133,9 @@ final readonly class AdminApplication
             'menus' => $this->menus($query),
             'media' => $this->media($query),
             'users' => $this->users(),
+            'settings' => $this->settingsView(),
+            'audit' => $this->auditView(),
+            'backups' => $this->backupsView(),
             default => $this->overview(),
         };
         return $this->shell('لوحة الإدارة', $this->header($actor) . '<main><div class="page-title"><div><p class="eyebrow">إدارة الموقع</p><h1>لوحة الموقع</h1></div><a class="secondary" href="/" target="_blank" rel="noopener">فتح الموقع</a></div>' . self::notice($message) . $content . '</main>');
@@ -110,7 +144,12 @@ final readonly class AdminApplication
     private function header(array $actor): string
     {
         $links = ['overview' => 'الرئيسية', 'sections' => 'الأقسام', 'pages' => 'الصفحات', 'templates' => 'القوالب', 'menus' => 'القوائم', 'media' => 'الوسائط'];
-        if ($actor['role'] === 'admin') $links['users'] = 'الأعضاء والصلاحيات';
+        if ($actor['role'] === 'admin') {
+            $links['users'] = 'الأعضاء والصلاحيات';
+            $links['settings'] = 'إعدادات الموقع';
+            $links['audit'] = 'سجل التدقيق';
+            $links['backups'] = 'النسخ الاحتياطي';
+        }
         $nav = '';
         foreach ($links as $view => $label) $nav .= '<a href="/admin?view=' . $view . '">' . $label . '</a>';
         return '<header class="admin-header"><a class="logo" href="/admin">ONE Engine</a><nav>' . $nav . '</nav><div class="account"><span>' . self::e((string) $actor['username']) . ' · ' . self::e((string) $actor['role']) . '</span><form method="post"><input type="hidden" name="csrf" value="' . self::e(SessionGuard::csrf()) . '"><input type="hidden" name="action" value="logout"><button class="secondary">خروج</button></form></div></header>';
@@ -183,6 +222,37 @@ final readonly class AdminApplication
         foreach (IdentityService::roleCapabilities() as $role => $actions) $matrix .= '<tr><th>' . self::e($role) . '</th><td>' . self::e(implode('، ', $actions)) . '</td></tr>';
         $new = $this->input('id', 'معرف العضو', '', true) . $this->input('username', 'اسم الدخول', '', true) . '<label>كلمة المرور<input type="password" name="password" minlength="12" required></label><label>الدور<select name="role">' . self::choices(['editor' => 'محرر', 'member' => 'عضو', 'admin' => 'مدير'], 'member') . '</select></label>';
         return '<section><h2>الأعضاء والأدوار</h2><div class="table-wrap"><table><tbody>' . $rows . '</tbody></table></div></section><section><h2>مصفوفة الأدوار</h2><table><tbody>' . $matrix . '</tbody></table></section><section><h2>عضو جديد</h2>' . $this->form('user', $new) . '</section>';
+    }
+
+    private function auditView(): string
+    {
+        if ($this->audit === null) return '<section><h2>سجل التدقيق</h2><p class="empty">الخدمة غير مهيأة.</p></section>';
+        $rows = '';
+        foreach ($this->audit->recent($this->siteId) as $event) {
+            $rows .= '<tr><td>' . self::e((string) ($event['created_at'] ?? '')) . '</td><td><code>' . self::e((string) ($event['actor_id'] ?? '')) . '</code></td><td>' . self::e((string) ($event['action'] ?? '')) . '</td><td>' . self::e((string) ($event['target'] ?? '')) . '</td></tr>';
+        }
+        return '<section><h2>سجل التدقيق الإداري</h2><p class="help">آخر 100 عملية. لا تعرض كلمات المرور أو محتوى الصفحات.</p><div class="table-wrap"><table><thead><tr><th>الوقت UTC</th><th>الفاعل</th><th>العملية</th><th>الهدف</th></tr></thead><tbody>' . $rows . '</tbody></table></div></section>';
+    }
+
+    private function settingsView(): string
+    {
+        $settings = array_merge($this->siteDefaults, $this->content->settings($this->siteId));
+        $fields = $this->input('title', 'اسم الموقع', $settings['title'] ?? '', true)
+            . $this->input('base_url', 'النطاق الأساسي HTTPS', $settings['base_url'] ?? '', true)
+            . $this->textarea('description', 'وصف الموقع وSEO', $settings['description'] ?? '')
+            . '<label class="check"><input type="checkbox" name="indexable" value="1"' . (!empty($settings['indexable']) ? ' checked' : '') . '> السماح لمحركات البحث بالفهرسة</label>';
+        return '<section><h2>إعدادات الموقع وSEO</h2><p class="help">تُستخدم هذه القيم في العرض العام وcanonical وrobots وملفات التصدير.</p>' . $this->form('settings', $fields) . '</section>';
+    }
+
+    private function backupsView(): string
+    {
+        if ($this->backups === null) return '<section><h2>النسخ الاحتياطي</h2><p class="empty">الخدمة غير مهيأة.</p></section>';
+        $rows = '';
+        foreach ($this->backups->all() as $backup) {
+            $rows .= '<tr><td><code>' . self::e($backup['name']) . '</code></td><td>' . number_format($backup['size']) . ' bytes</td><td>' . self::e($backup['modified']) . '</td><td><form method="post" class="inline" data-confirm="ستستبدل الاستعادة بيانات الموقع الحالية. هل أنت متأكد؟"><input type="hidden" name="csrf" value="' . self::e(SessionGuard::csrf()) . '"><input type="hidden" name="action" value="backup_restore"><input type="hidden" name="name" value="' . self::e($backup['name']) . '"><button class="danger">استعادة</button></form></td></tr>';
+        }
+        if ($rows === '') $rows = '<tr><td colspan="4" class="empty">لا توجد نسخ بعد.</td></tr>';
+        return '<section><div class="section-title"><div><h2>النسخ الاحتياطي والاستعادة</h2><p class="help">تُحفظ النسخ بصلاحية خاصة خارج public وتُفحص قبل الاستعادة.</p></div><form method="post"><input type="hidden" name="csrf" value="' . self::e(SessionGuard::csrf()) . '"><input type="hidden" name="action" value="backup_create"><button>إنشاء نسخة الآن</button></form></div><div class="table-wrap"><table><thead><tr><th>الملف</th><th>الحجم</th><th>التاريخ</th><th>الإجراء</th></tr></thead><tbody>' . $rows . '</tbody></table></div></section>';
     }
 
     private function listing(string $title, array $records, string $kind, string $view, bool $preview = false, string $help = ''): string

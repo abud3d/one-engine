@@ -70,18 +70,20 @@ and instantiate the selected adapter with its path and the actual public root.
 Do not initialize it from user-supplied paths. See [STORAGE.md](STORAGE.md) for
 backup/restore, local filesystem limits and crash-durability qualifications.
 
-## Before adding authenticated writes
+## Authenticated administration
 
-Every request needs identity validation, full-origin and CSRF checks, bounded
-input reads, schema/UTF-8 validation, authorization within the trusted site,
-rate-limiting and a minimal auditable event. Secure password recovery requires
+The CMS administration validates identity/session version, configured HTTPS
+Origin and CSRF, then applies schema/UTF-8 validation and site authorization.
+Login attempts are bounded and successful mutations create audit events. Secure password recovery requires
 trusted site URLs, hashed expiring single-use tokens, replay tests and session
 revocation. Do not add uploads without a separate safe-storage design.
 
-Private content, management responses and tokens must never be public-cacheable
-or included in static builds. Log retention, operational backups, signing,
-credential rotation and privacy policy remain future production work. The
-foundation is intentionally not presented as a production-ready CMS.
+Private content, management responses and tokens are no-store and never included
+in static builds. The administration can create private JSON backups with a
+checksum and restore them under an exclusive operation lock; a failed document
+write rolls back already applied documents. Stop external/legacy CLI writers
+during restore. Off-host backup retention, signed archives, credential rotation
+and privacy policy remain deployment responsibilities.
 
 ## Validation
 

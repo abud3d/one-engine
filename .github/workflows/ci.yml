@@ -59,6 +59,9 @@ jobs:
         run: |
           php bin/one-cms-package build/cms-runtime build/one-engine-cms-runtime.zip
           php tests/cms_package_acceptance.php build/one-engine-cms-runtime.zip build/cms-acceptance
+      - name: Accept CMS ZIP on Apache PHP 8.3
+        if: matrix.php == '8.3'
+        run: bash scripts/test-cms-apache.sh build/one-engine-cms-runtime.zip build/apache-acceptance
       - name: Upload static site ZIP
         uses: actions/upload-artifact@v4
         with:

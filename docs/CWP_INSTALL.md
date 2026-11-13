@@ -26,16 +26,22 @@
 
    ```sh
    cd /home/ACCOUNT/one-engine-cms
-   php bin/one-install /home/ACCOUNT/one-engine-data admin 'YOUR-OWN-LONG-PASSWORD'
+   read -rsp 'Admin password: ' ONE_ADMIN_PASSWORD
+   echo
+   export ONE_ADMIN_PASSWORD
+   php bin/one-install /home/ACCOUNT/one-engine-data admin 'https://YOUR-DOMAIN'
+   unset ONE_ADMIN_PASSWORD
    ```
 
-   لا تضع كلمة المرور في ملف أو Git أو تذكرة دعم. الأمر لا يحفظ النص الصريح؛ يحفظ hash فقط داخل مجلد البيانات.
+   لا تضع كلمة المرور في ملف أو Git أو معاملات الأمر أو تذكرة دعم. الإدخال المخفي لا يسجلها في shell history، والمثبت يحفظ hash فقط.
 
 6. افتح `https://YOUR-DOMAIN/admin`، وأنشئ قسمًا وصفحة. احفظ الصفحة كمسودة، افتح المعاينة، ثم انشرها وافتح `/p/SLUG` في نافذة خاصة.
 
+7. من «إعدادات الموقع» أدخل الاسم والوصف ونفس نطاق HTTPS، ثم أنشئ أول نسخة من شاشة «النسخ الاحتياطي». توجد النسخ داخل مجلد البيانات الخاص ولا يمكن تنزيلها من الويب.
+
 ## التحقق والأذونات
 
-ينشئ المثبت `config/local.php` بصلاحية `0600` ويحوي مسار البيانات فقط، ومجلد بيانات بصلاحية `0700` خارج `public`. لا توجد بيانات دخول افتراضية في ZIP.
+ينشئ المثبت `config/local.php` بصلاحية `0600` ويحوي مسار البيانات وOrigin HTTPS الموثوق، ومجلد بيانات بصلاحية `0700` خارج `public`. تُرفض طلبات POST من Origin مختلف أو مفقود. لا توجد بيانات دخول افتراضية في ZIP.
 
 يجب أن يعمل Apache `mod_rewrite` وأن يسمح بقراءة `public/.htaccess`. إذا أعاد CWP خطأ 404 للمسارات النظيفة، راجع Rewrite/AllowOverride للنطاق دون نقل ملفات خاصة إلى الويب.
 

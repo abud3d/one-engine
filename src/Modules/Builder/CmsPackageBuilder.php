@@ -116,10 +116,14 @@ Create the first administrator from a terminal or hosting control-panel terminal
 
 ```sh
 cd /path/to/one-engine-cms
-php bin/one-install /path/to/private-one-data admin 'YOUR-OWN-LONG-PASSWORD'
+read -rsp 'Admin password: ' ONE_ADMIN_PASSWORD
+echo
+export ONE_ADMIN_PASSWORD
+php bin/one-install /path/to/private-one-data admin 'https://YOUR-DOMAIN'
+unset ONE_ADMIN_PASSWORD
 ```
 
-The installer creates `config/local.php` with mode `0600` and the data directory with mode `0700`. It does not store the supplied password. Do not move `config/local.php` or the private directory into `public`.
+The installer creates `config/local.php` with mode `0600`, stores the trusted HTTPS Origin, and creates the data directory with mode `0700`. It does not store the supplied password. Do not move `config/local.php` or the private directory into `public`.
 
 Open `/admin`, sign in, then create a section, page, blocks and menu. Save the page as draft, use its protected preview link, then publish it. Public pages use `/p/SLUG`; section pages use `/sections/SLUG`.
 

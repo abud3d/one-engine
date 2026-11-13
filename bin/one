@@ -23,9 +23,10 @@ try {
         (new ReleaseBuilder(dirname(__DIR__)))->build($site, $argv[3]);
         echo 'Built ' . $site->mode->value . " release. Nothing was deployed.\n";
     } elseif (($argv[1] ?? '') === 'export' && in_array(count($argv), [4, 5], true)) {
-        $site = Site::fromArray($config);
         $store = new JsonStore($argv[2], dirname(__DIR__) . '/public');
-        $builder = new ContentReleaseBuilder(dirname(__DIR__), new SiteContent($store));
+        $content = new SiteContent($store);
+        $site = Site::fromArray(array_merge($config, $content->settings($config['id'])));
+        $builder = new ContentReleaseBuilder(dirname(__DIR__), $content);
         $builder->build($site, $argv[3]);
         if (isset($argv[4])) {
             $builder->zip($argv[3], $argv[4]);

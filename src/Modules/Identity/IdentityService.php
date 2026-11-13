@@ -39,7 +39,7 @@ final readonly class IdentityService
             if (count($users) >= 100) {
                 throw new \LengthException('User limit reached.');
             }
-            $users[] = ['id' => $id, 'username' => $username, 'password_hash' => $hash, 'role' => $role, 'active' => true];
+            $users[] = ['id' => $id, 'username' => $username, 'password_hash' => $hash, 'role' => $role, 'active' => true, 'session_version' => 0];
             return $users;
         });
     }
@@ -82,8 +82,8 @@ final readonly class IdentityService
                 $user['active'] = $active;
                 if ($hash !== null) {
                     $user['password_hash'] = $hash;
-                    $user['session_version'] = (int) ($user['session_version'] ?? 0) + 1;
                 }
+                $user['session_version'] = (int) ($user['session_version'] ?? 0) + 1;
                 $found = true;
                 break;
             }
@@ -180,7 +180,7 @@ final readonly class IdentityService
                     unset($all[$attemptKey]);
                     return $all;
                 });
-                return ['id' => (string) $user['id'], 'username' => $username, 'role' => (string) $user['role']];
+                return ['id' => (string) $user['id'], 'username' => $username, 'role' => (string) $user['role'], 'session_version' => (int) ($user['session_version'] ?? 0)];
             }
         }
         password_verify($password, '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG');
@@ -198,6 +198,16 @@ final readonly class IdentityService
             $result[] = ['id' => (string) $user['id'], 'username' => (string) $user['username'], 'role' => (string) $user['role'], 'active' => (bool) $user['active']];
         }
         return $result;
+    }
+
+    public function validateSession(string $siteId, array $actor): ?array
+    {
+        foreach ($this->store->read($siteId, 'users') as $user) {
+            if (!is_array($user) || ($user['id'] ?? null) !== ($actor['id'] ?? null)) continue;
+            if (($user['active'] ?? false) !== true || (int) ($user['session_version'] ?? 0) !== (int) ($actor['session_version'] ?? 0)) return null;
+            return ['id' => (string) $user['id'], 'username' => (string) $user['username'], 'role' => (string) $user['role'], 'session_version' => (int) ($user['session_version'] ?? 0)];
+        }
+        return null;
     }
 
     private static function validateUsername(string $username): void

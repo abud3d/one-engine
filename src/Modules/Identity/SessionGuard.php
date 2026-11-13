@@ -62,4 +62,16 @@ final class SessionGuard
         session_regenerate_id(true);
         $_SESSION['csrf'] = Csrf::issue();
     }
+
+    public static function refresh(array $actor): void
+    {
+        $_SESSION['actor'] = $actor;
+    }
+
+    public static function invalidate(): void
+    {
+        $_SESSION = [];
+        session_regenerate_id(true);
+        $_SESSION['csrf'] = Csrf::issue();
+    }
 }
