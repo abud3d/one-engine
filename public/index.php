@@ -12,13 +12,20 @@ try {
     // Optional private JSON storage; public index and community stay reachable without it.
     $pages = null;
     $community = null;
-    $private = getenv('ONE_PRIVATE_DIR');
-    if ($private !== false && $private !== '') {
+    $cms = null;
+    $actor = null;
+    $private = \OneEngine\Modules\Runtime\LocalConfiguration::privateDirectory(dirname(__DIR__));
+    if ($private !== null) {
         $store = new \OneEngine\Storage\JsonStore($private, __DIR__);
         $pages = new \OneEngine\Modules\Runtime\PageCatalog($store);
         $community = new \OneEngine\Modules\Runtime\CommunityCatalog($store);
+        $cms = new \OneEngine\Modules\Content\SiteContent($store);
+        if (isset($_COOKIE['ONESESSID'])) {
+            \OneEngine\Modules\Identity\SessionGuard::start($https);
+            $actor = \OneEngine\Modules\Identity\SessionGuard::actor($site->id);
+        }
     }
-    (new \OneEngine\Modules\Runtime\Application($site, __DIR__, $pages, $community))
+    (new \OneEngine\Modules\Runtime\Application($site, __DIR__, $pages, $community, $cms, $actor))
         ->handle($method, $_SERVER['REQUEST_URI'] ?? '/', $https)->send($method === 'HEAD');
 } catch (Throwable $error) {
     error_log('ONE Engine request failed: ' . $error::class);

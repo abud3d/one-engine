@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /** Real server smoke tests; artifacts live outside the source tree and need no central process. */
-function withServer(string $root, callable $checkServer, bool $router = true): void
+function withServer(string $root, callable $checkServer, bool $router = true, array $environment = []): void
 {
     $socket = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $errorMessage);
     check(is_resource($socket), $errorMessage);
@@ -13,7 +13,8 @@ function withServer(string $root, callable $checkServer, bool $router = true): v
         $command[] = $root . '/public/router.php';
     }
     $log = tempnam(sys_get_temp_dir(), 'one-http-');
-    $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes, $root);
+    $processEnvironment = $environment === [] ? null : array_merge(getenv(), $environment);
+    $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes, $root, $processEnvironment);
     check(is_resource($process));
     fclose($pipes[0]);
     try {

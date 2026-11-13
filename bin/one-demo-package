@@ -1,0 +1,39 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+use OneEngine\Modules\Builder\ContentReleaseBuilder;
+use OneEngine\Modules\Content\SiteContent;
+use OneEngine\Modules\Runtime\{Mode, Site};
+use OneEngine\Storage\JsonStore;
+
+try {
+    if (count($argv) !== 3) {
+        throw new InvalidArgumentException('Usage: php bin/one-demo-package NEW_DIRECTORY NEW.zip');
+    }
+    $private = sys_get_temp_dir() . '/one-demo-' . bin2hex(random_bytes(8));
+    if (!mkdir($private, 0700)) {
+        throw new RuntimeException('Cannot create demo storage.');
+    }
+    try {
+        $content = new SiteContent(new JsonStore($private, dirname(__DIR__) . '/public'));
+        $admin = ['id' => 'package-admin', 'role' => 'admin'];
+        $content->saveSection('one-demo', $admin, ['id' => 'start', 'title' => 'البداية', 'description' => 'قسم تجريبي', 'state' => 'published', 'visibility' => 'public', 'layout' => 'one']);
+        $content->savePage('one-demo', $admin, ['id' => 'welcome', 'title' => 'مرحبًا في ONE Engine', 'description' => 'حزمة تجربة مستقلة', 'body' => 'هذه صفحة عامة منشورة من محرك المحتوى الفعلي.', 'section_id' => 'start', 'state' => 'published', 'visibility' => 'public', 'layout' => 'two', 'blocks' => [['type' => 'heading', 'content' => 'تصدير مستقل', 'visibility' => 'public', 'column' => 1], ['type' => 'text', 'content' => 'لا تحتاج هذه الحزمة إلى الإدارة المركزية.', 'visibility' => 'public', 'column' => 2]]]);
+        $site = new Site('one-demo', 'ONE Engine Demo', 'حزمة معاينة ثابتة', 'https://example.invalid', Mode::Static, false);
+        $builder = new ContentReleaseBuilder(dirname(__DIR__), $content);
+        $builder->build($site, $argv[1]);
+        $builder->zip($argv[1], $argv[2]);
+    } finally {
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($private, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST) as $file) {
+            $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+        }
+        rmdir($private);
+    }
+    echo "Built demo ZIP.\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, $error->getMessage() . "\n");
+    exit(1);
+}

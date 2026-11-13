@@ -7,6 +7,9 @@ require dirname(__DIR__) . '/bootstrap.php';
 use OneEngine\Modules\Builder\ReleaseBuilder;
 use OneEngine\Modules\CentralManagement\SiteCatalog;
 use OneEngine\Modules\Runtime\Site;
+use OneEngine\Modules\Builder\ContentReleaseBuilder;
+use OneEngine\Modules\Content\SiteContent;
+use OneEngine\Storage\JsonStore;
 
 try {
     $config = require dirname(__DIR__) . '/config/site.php';
@@ -19,8 +22,17 @@ try {
         $site = Site::fromArray($config);
         (new ReleaseBuilder(dirname(__DIR__)))->build($site, $argv[3]);
         echo 'Built ' . $site->mode->value . " release. Nothing was deployed.\n";
+    } elseif (($argv[1] ?? '') === 'export' && in_array(count($argv), [4, 5], true)) {
+        $site = Site::fromArray($config);
+        $store = new JsonStore($argv[2], dirname(__DIR__) . '/public');
+        $builder = new ContentReleaseBuilder(dirname(__DIR__), new SiteContent($store));
+        $builder->build($site, $argv[3]);
+        if (isset($argv[4])) {
+            $builder->zip($argv[3], $argv[4]);
+        }
+        echo "Exported public site. No deployment was performed.\n";
     } else {
-        fwrite(STDERR, "Usage:\n  php bin/one sites\n  php bin/one build static|hybrid|dynamic NEW_DIRECTORY\n");
+        fwrite(STDERR, "Usage:\n  php bin/one sites\n  php bin/one build static|hybrid|dynamic NEW_DIRECTORY\n  php bin/one export PRIVATE_DIR NEW_DIRECTORY [NEW.zip]\n");
         exit(2);
     }
 } catch (Throwable $error) {

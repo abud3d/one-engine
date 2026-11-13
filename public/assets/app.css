@@ -8,3 +8,5 @@
 /* Source demo header navigation only; exported CSS is safe without these links. */
 .one-home-nav{display:flex;flex-wrap:wrap;gap:12px;margin-inline-start:auto}.one-home-nav a{font-size:14px;text-decoration:none;padding:7px 11px;border:1px solid var(--line);border-radius:8px}.one-home-nav a:hover{color:var(--green);border-color:var(--green)}.community-post>a{display:inline-block;margin-top:12px;color:var(--green);font-size:13px}.one-preview .community-post>a{color:var(--one-accent)}
 @media(max-width:760px){.one-home-nav{width:100%;justify-content:center;margin:10px 0 0}.one-home-nav a{font-size:12px}}
+.cms-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:1.5rem}.cms-layout aside a,header nav a,footer a{margin-inline:.5rem}.blocks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.block{padding:1rem;border:1px solid var(--line);border-radius:12px}.block img{max-width:100%;height:auto}.layout-two .blocks{grid-template-columns:repeat(2,minmax(0,1fr))}.layout-one .blocks{grid-template-columns:1fr}
+@media(max-width:700px){.blocks,.layout-two .blocks{grid-template-columns:1fr}}

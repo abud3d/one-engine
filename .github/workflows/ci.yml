@@ -27,7 +27,7 @@ jobs:
       - uses: shivammathur/setup-php@d52fc211a0436f8839a587b3b5b8efddab4744ea # v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: pdo_sqlite
+          extensions: pdo_sqlite, zip
           coverage: none
           tools: none
       - name: PHP syntax
@@ -39,6 +39,10 @@ jobs:
           php -l bin/one-arbnt-password
           php -l bin/one-posts
           php -l bin/one-pages
+          php -l bin/one-admin
+          php -l bin/one-demo-package
+          php -l bin/one-install
+          php -l bin/one-cms-package
       - name: Behavioral, concurrency and HTTP tests
         run: php tests/run.php
       - name: Check module boundaries and release hygiene
@@ -49,3 +53,21 @@ jobs:
           php bin/one build static build/static
           php bin/one build hybrid build/hybrid
           php bin/one build dynamic build/dynamic
+      - name: Build separate static site ZIP
+        run: php bin/one-demo-package build/cms-demo build/one-engine-cms-demo.zip
+      - name: Build and accept interactive CMS ZIP
+        run: |
+          php bin/one-cms-package build/cms-runtime build/one-engine-cms-runtime.zip
+          php tests/cms_package_acceptance.php build/one-engine-cms-runtime.zip build/cms-acceptance
+      - name: Upload static site ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-engine-static-site-php-${{ matrix.php }}
+          path: build/one-engine-cms-demo.zip
+          if-no-files-found: error
+      - name: Upload interactive CMS ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-engine-cms-runtime-php-${{ matrix.php }}
+          path: build/one-engine-cms-runtime.zip
+          if-no-files-found: error

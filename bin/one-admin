@@ -1,0 +1,31 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+use OneEngine\Modules\Identity\IdentityService;
+use OneEngine\Modules\Runtime\Site;
+use OneEngine\Storage\JsonStore;
+
+try {
+    $site = Site::fromArray(require dirname(__DIR__) . '/config/site.php');
+    if (($argv[1] ?? '') === 'import-arbnt' && count($argv) === 4) {
+        $json = file_get_contents($argv[3]);
+        if ($json === false) {
+            throw new RuntimeException('Cannot read ARBNT export.');
+        }
+        $identity = new IdentityService(new JsonStore($argv[2], dirname(__DIR__) . '/public'));
+        $count = $identity->importArbnt($site->id, json_decode($json, true, 32, JSON_THROW_ON_ERROR));
+        echo "Imported {$count} reviewed ARBNT accounts into {$site->id}.\n";
+    } elseif (count($argv) === 4) {
+        $store = new JsonStore($argv[1], dirname(__DIR__) . '/public');
+        (new IdentityService($store))->create($site->id, 'admin-' . bin2hex(random_bytes(6)), $argv[2], $argv[3], 'admin');
+        echo "Administrator created for {$site->id}.\n";
+    } else {
+        throw new InvalidArgumentException("Usage:\n  php bin/one-admin PRIVATE_DIR USERNAME PASSWORD\n  php bin/one-admin import-arbnt PRIVATE_DIR REVIEWED_USERS.json");
+    }
+} catch (Throwable $error) {
+    fwrite(STDERR, $error->getMessage() . "\n");
+    exit(1);
+}

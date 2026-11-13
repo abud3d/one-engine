@@ -38,7 +38,7 @@ final readonly class ReleaseBuilder
                 foreach (['Identifier', 'Action', 'ContentObject', 'Principal', 'Grant', 'PermissionEngine'] as $class) {
                     $files[] = 'src/Core/' . $class . '.php';
                 }
-                foreach (['Mode', 'Site', 'Renderer', 'Response', 'Application'] as $class) {
+                foreach (['Mode', 'Site', 'Renderer', 'Response', 'Application', 'LocalConfiguration'] as $class) {
                     $files[] = 'src/Modules/Runtime/' . $class . '.php';
                 }
                 foreach ($files as $file) {
