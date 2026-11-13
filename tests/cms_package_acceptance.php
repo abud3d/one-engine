@@ -60,7 +60,7 @@ requireCheck(is_resource($socket), $errorMessage);
 $address = stream_socket_get_name($socket, false);
 fclose($socket);
 $server = proc_open([PHP_BINARY, '-c', $root . '/config/php.ini', '-S', $address, '-t', $root . '/public', $root . '/public/router.php'],
-    [0 => ['pipe', 'r'], 1 => ['file', $work . '/server.log', 'a'], 2 => ['file', $work . '/server.log', 'a']], $serverPipes, $root, array_merge(getenv(), ['HTTPS' => 'on']));
+    [0 => ['pipe', 'r'], 1 => ['file', $work . '/server.log', 'a'], 2 => ['file', $work . '/server.log', 'a']], $serverPipes, $root, array_merge(getenv(), ['ONE_TEST_HTTPS' => '1']));
 requireCheck(is_resource($server), 'Cannot start packaged CMS.');
 fclose($serverPipes[0]);
 try {
