@@ -1,6 +1,60 @@
 <?php
 declare(strict_types=1);
 
+function runLegacyWorker(string $publicRoot, string $operation): array
+{
+    $process = proc_open([PHP_BINARY, __DIR__ . '/legacy_worker.php', $publicRoot, $operation],
+        [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    check(is_resource($process), 'Could not start legacy storage worker');
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    return [proc_close($process), $stdout, $stderr];
+}
+
+test('legacy ARBNT refuses corrupt JSON and never overwrites it', function () use ($temp): void {
+    $root = $temp . '/legacy-corruption';
+    mkdir($root . '/public', 0700, true);
+    mkdir($root . '/arbnt-private', 0700);
+    $file = $root . '/arbnt-private/posts.json';
+    $corrupt = '{"existing":"record"';
+    file_put_contents($file, $corrupt);
+    chmod($file, 0600);
+
+    [$readStatus, , $readError] = runLegacyWorker($root . '/public', 'read');
+    check($readStatus !== 0 && str_contains($readError, 'JsonException'), 'Corrupt JSON read was accepted');
+    check(file_get_contents($file) === $corrupt, 'Read changed corrupt JSON');
+
+    [$writeStatus, , $writeError] = runLegacyWorker($root . '/public', 'replace');
+    check($writeStatus !== 0 && str_contains($writeError, 'JsonException'), 'Write replaced corrupt JSON');
+    check(file_get_contents($file) === $corrupt, 'Corrupt JSON was overwritten');
+});
+
+test('legacy ARBNT serializes concurrent JSON updates without lost writes', function () use ($temp): void {
+    $root = $temp . '/legacy-concurrency';
+    mkdir($root . '/public', 0700, true);
+    mkdir($root . '/arbnt-private', 0700);
+    file_put_contents($root . '/arbnt-private/posts.json', '{"count":0}');
+    $processes = [];
+    for ($i = 0; $i < 4; $i++) {
+        $process = proc_open([PHP_BINARY, __DIR__ . '/legacy_worker.php', $root . '/public', 'increment'],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        check(is_resource($process), 'Could not start concurrent legacy worker');
+        fclose($pipes[0]);
+        $processes[] = [$process, $pipes];
+    }
+    foreach ($processes as [$process, $pipes]) {
+        $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        check(proc_close($process) === 0, $output);
+    }
+    $stored = json_decode(file_get_contents($root . '/arbnt-private/posts.json'), true, flags: JSON_THROW_ON_ERROR);
+    check($stored === ['count' => 100], 'Concurrent legacy updates lost data');
+});
+
 /** Live API smoke test in an entirely separate temporary directory.
  * Never reads or changes the owner's actual ARBNT data.
  */

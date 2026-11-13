@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "scripts/package-arbnt-new2.sh"
+      - "src/LegacyArbnt/core.php"
       - ".github/workflows/package-new2.yml"
       - "docs/ARBNT_PORTABLE_INSTALL.md"
   workflow_dispatch:
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths:
       - "scripts/package-arbnt-new2.sh"
+      - "src/LegacyArbnt/core.php"
       - ".github/workflows/package-new2.yml"
       - "docs/ARBNT_PORTABLE_INSTALL.md"
 
@@ -55,6 +57,8 @@ jobs:
           grep -Fq "Require all denied" dist/portable-site/.private-app/.htaccess
           grep -Fq "mkdir(\$private,0700)" dist/portable-site/install.php
           grep -Fq 'fopen($probePath,' dist/portable-site/install.php
+          grep -Fq "JSON_THROW_ON_ERROR" dist/portable-site/app/core.php
+          grep -Fq "Storage lock timeout" dist/portable-site/app/core.php
           if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/install.php; then exit 1; fi
           if grep -Fq "dirname(\$base).'/arbnt-private'" dist/portable-site/app/core.php; then exit 1; fi
           echo "PORTABLE PACKAGE CHECKS PASSED"

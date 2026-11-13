@@ -5,6 +5,7 @@ set -euo pipefail
 source_dir="${1:?Usage: scripts/package-arbnt-new2.sh /path/to/arbnt-source}"
 output_dir="${2:-dist}"
 root="$output_dir/portable-site"
+builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 for f in install.php app/core.php api/community.php; do
   test -f "$source_dir/$f" || { echo "Missing $f" >&2; exit 1; }
 done
@@ -17,7 +18,9 @@ done
 cp "$source_dir"/assets/*.css "$root/assets/"
 cp "$source_dir"/assets/*.js "$root/assets/"
 cp "$source_dir/api/community.php" "$root/api/community.php"
-cp "$source_dir/app/core.php" "$root/app/core.php"
+# Package the reviewed legacy adapter from ONE Engine so mounted and portable
+# ARBNT installations share the same corruption and concurrency safeguards.
+cp "$builder_root/src/LegacyArbnt/core.php" "$root/app/core.php"
 cp "$source_dir/install.php" "$root/install.php"
 cp "$source_dir/setup.php" "$root/setup.php"
 
