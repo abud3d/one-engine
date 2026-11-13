@@ -18,7 +18,8 @@ final class SqliteStore implements DocumentStore
             if (is_link($file) || (file_exists($file) && !is_file($file))) throw new \RuntimeException('Unsafe SQLite file.');
         }
         $this->pdo = new \PDO('sqlite:' . $path, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION, \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC]);
-        $this->pdo->exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS documents (site_id TEXT NOT NULL, document_key TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(site_id, document_key))');
+        $this->pdo->exec('PRAGMA busy_timeout=5000');
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS documents (site_id TEXT NOT NULL, document_key TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(site_id, document_key))');
         if (!chmod($path, 0600)) throw new \RuntimeException('Cannot protect SQLite storage.');
     }
 
@@ -45,10 +46,10 @@ final class SqliteStore implements DocumentStore
             if (strlen($json) > 2097152) throw new \LengthException('Document is too large.');
             $statement = $this->pdo->prepare('INSERT INTO documents(site_id, document_key, payload) VALUES(:site,:key,:payload) ON CONFLICT(site_id,document_key) DO UPDATE SET payload=excluded.payload');
             $statement->execute(['site' => $siteId, 'key' => $key, 'payload' => $json]);
-            $this->pdo->commit();
+            $this->pdo->exec('COMMIT');
             return $next;
         } catch (\Throwable $error) {
-            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            try { $this->pdo->exec('ROLLBACK'); } catch (\PDOException) {}
             throw $error;
         }
     }
